@@ -11,12 +11,18 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(RolesSeeder::class);
 
-        $user = User::create([
+        $admin = User::create([
             'usuario'  => 'admin',
             'password' => 'admin123',
             'rol'      => 'admin',
         ]);
+        $admin->assignRole('admin');
 
-        $user->assignRole('admin');
+        $empleado = User::create([
+            'usuario'  => 'empleado',
+            'password' => 'empleado123',
+            'rol'      => 'empleado',
+        ]);
+        $empleado->assignRole('empleado');
     }
 }

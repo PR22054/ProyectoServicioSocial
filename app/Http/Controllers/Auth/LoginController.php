@@ -3,21 +3,39 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Foundation\Auth\AuthenticatesUsers;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class LoginController extends Controller
 {
-    use AuthenticatesUsers;
-
-    protected $redirectTo = '/home';
-
-    public function __construct()
+    public function showLoginForm()
     {
-        $this->middleware('guest')->except('logout');
+        return view('frontend.auth.login');
     }
 
-    public function username(): string
+    public function login(Request $request)
     {
-        return 'usuario';
+        $credentials = $request->validate([
+            'usuario'  => ['required', 'string'],
+            'password' => ['required', 'string'],
+        ]);
+
+        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+            $request->session()->regenerate();
+
+            return Auth::user()->hasRole('admin')
+                ? redirect()->route('admin.dashboard')
+                : redirect()->route('empleado.dashboard');
+        }
+
+        return back()->withErrors(['usuario' => 'Credenciales incorrectas.'])->onlyInput('usuario');
+    }
+
+    public function logout()
+    {
+        Auth::logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+        return redirect()->route('login');
     }
 }

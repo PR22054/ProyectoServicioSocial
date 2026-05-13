@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+//middleware que agrega cabeceras HTTP para evitar que el navegador
+//almacene en cache las paginas autenticadas e impida el regreso con el boton atras
 use Closure;
 use Illuminate\Http\Request;
 

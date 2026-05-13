@@ -1,3 +1,4 @@
+{{--dashboard de bienvenida para el rol admin--}}
 @extends('frontend.layouts.admin')
 
 @section('page_title', 'Dashboard Admin')

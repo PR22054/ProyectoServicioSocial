@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+//seeder principal, llama a RolesSeeder. Crea los usuarios admin y empleado
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -9,6 +10,7 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        //primero crea  roles para poder asignarlos a usuarios
         $this->call(RolesSeeder::class);
 
         $admin = User::create([

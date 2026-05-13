@@ -307,14 +307,20 @@ return [
         ],
         [
             'text' => 'Años',
-            'url'  => 'anios',
+            'url'  => 'admin/anios',
             'icon' => 'fas fa-fw fa-calendar-alt',
             'can'  => 'admin-access',
         ],
         [
             'text' => 'Usuarios',
-            'url'  => 'usuarios',
+            'url'  => 'admin/usuarios',
             'icon' => 'fas fa-fw fa-users',
+            'can'  => 'admin-access',
+        ],
+        [
+            'text' => 'Roles',
+            'url'  => 'admin/roles',
+            'icon' => 'fas fa-fw fa-user-tag',
             'can'  => 'admin-access',
         ],
         ['header' => 'SESIÓN'],

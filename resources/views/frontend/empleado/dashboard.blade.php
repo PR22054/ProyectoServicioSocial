@@ -1,3 +1,4 @@
+{{--dashboard de bienvenida para el rol empleado--}}
 @extends('frontend.layouts.empleado')
 
 @section('page_title', 'Inicio')

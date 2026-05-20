@@ -3,12 +3,26 @@
 
 @section('title', 'Panel Administrativo')
 
-@section('content_header')
-    <h1>@yield('page_title', 'Dashboard')</h1>
+{{--CSS para centrar el logo del sidebar en estado normal y contraido--}}
+@section('adminlte_css')
+<style>
+    .brand-link .brand-image { display: none !important; }
+    .brand-link .brand-text { width: 100%; text-align: center; }
+</style>
 @stop
 
+{{--titulo de la pagina centrado--}}
+@section('content_header')
+    <h1 class="text-center">@yield('page_title', 'Dashboard')</h1>
+@stop
+
+{{--todo el contenido se centra horizontalmente dentro de la columna principal--}}
 @section('content')
-    @yield('page_content')
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10 col-xl-9">
+            @yield('page_content')
+        </div>
+    </div>
 @stop
 
 @section('footer')
@@ -29,4 +43,5 @@
         }
     });
 </script>
+@stack('js')
 @stop

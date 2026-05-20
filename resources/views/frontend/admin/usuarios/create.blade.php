@@ -5,7 +5,7 @@
 
 @section('page_content')
 
-    <div class="card" style="max-width:480px">
+    <div class="card mx-auto" style="max-width:480px">
         <div class="card-body">
 
             @if($errors->any())

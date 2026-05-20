@@ -1,7 +1,11 @@
 {{--vista del formulario de inicio de sesion, usa el campo usuario en lugar de email--}}
 @extends('adminlte::auth.auth-page', ['authType' => 'login'])
 
-@section('auth_header', 'Iniciar Sesión')
+@section('adminlte_css_pre')
+<style>
+    .login-logo a > b { display: none; }
+</style>
+@stop
 
 @section('auth_body')
     {{--alerta informativa cuando el sistema cierra sesion automaticamente por cambio de rol o eliminacion--}}

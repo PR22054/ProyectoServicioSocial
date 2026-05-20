@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Anio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Mpdf\Mpdf;
+use Mccarlosen\LaravelMpdf\Facades\LaravelMpdf as PDF;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 //controlador compartido entre admin y empleado para buscar y generar constancias de retencion
@@ -117,27 +117,27 @@ class RetencionController extends Controller
                 ->with('buscar_error', 'No se encontró ningún registro con el NIT/DUI ingresado.');
         }
 
-        try {
-            $mpdf = new Mpdf([
-                'margin_top'    => 15,
-                'margin_bottom' => 15,
-                'margin_left'   => 20,
-                'margin_right'  => 20,
-            ]);
+        $config = [
+            'margin_top'    => 15,
+            'margin_bottom' => 15,
+            'margin_left'   => 20,
+            'margin_right'  => 20,
+        ];
 
+        try {
             //si hay dos constancias se combinan en un unico PDF con salto de pagina entre ellas
             if ($html1 && $html2) {
                 $estilo  = $this->extraerEstilo($html1);
                 $cuerpo1 = $this->extraerCuerpo($html1);
                 $cuerpo2 = $this->extraerCuerpo($html2);
-                $mpdf->WriteHTML($estilo . $cuerpo1 . '<pagebreak />' . $cuerpo2);
+                $htmlFinal = $estilo . $cuerpo1 . '<pagebreak />' . $cuerpo2;
             } elseif ($html1) {
-                $mpdf->WriteHTML($html1);
+                $htmlFinal = $html1;
             } else {
-                $mpdf->WriteHTML($html2);
+                $htmlFinal = $html2;
             }
 
-            $pdfStr = $mpdf->Output('', 'S');
+            $pdfStr = PDF::loadHTML($htmlFinal, $config)->output();
         } catch (\Exception $e) {
             return back()->withInput()
                 ->with('buscar_error', 'Error al generar el PDF. Intente de nuevo.');

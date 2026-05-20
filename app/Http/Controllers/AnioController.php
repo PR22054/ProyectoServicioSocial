@@ -8,11 +8,19 @@ use Illuminate\Http\Request;
 
 class AnioController extends Controller
 {
+    //retorna los nombres de archivos Excel disponibles en public/excel
+    private function archivosExcel(): array
+    {
+        $archivos = glob(public_path('excel') . '/*.{xlsx,xls}', GLOB_BRACE);
+        return array_map('basename', $archivos ?: []);
+    }
+
     //lista todos los anos ordenados de forma descendente
     public function index()
     {
         $anios = Anio::orderBy('anio', 'desc')->get();
-        return view('frontend.admin.anios.index', compact('anios'));
+        $archivos = $this->archivosExcel();
+        return view('frontend.admin.anios.index', compact('anios', 'archivos'));
     }
 
     //valida que el ano no este duplicado y lo guarda en la BD
@@ -20,12 +28,16 @@ class AnioController extends Controller
     {
         $request->validate([
             'anio' => 'required|integer|digits:4|min:1900|max:2100|unique:anios,anio',
+            'archivo_excel' => 'nullable|string',
         ], [
             'anio.unique' => 'Ese ano ya esta registrado.',
             'anio.digits' => 'El ano debe tener 4 digitos.',
         ]);
 
-        Anio::create(['anio' => $request->anio]);
+        Anio::create([
+            'anio' => $request->anio,
+            'archivo_excel' => $request->archivo_excel ?: null,
+        ]);
 
         return back()->with('success', 'Ano agregado correctamente.');
     }
@@ -33,7 +45,8 @@ class AnioController extends Controller
     //muestra el formulario de edicion para un ano existente
     public function edit(Anio $anio)
     {
-        return view('frontend.admin.anios.edit', compact('anio'));
+        $archivos = $this->archivosExcel();
+        return view('frontend.admin.anios.edit', compact('anio', 'archivos'));
     }
 
     //valida y actualiza el campo anio ignorando el registro actual en la regla unique
@@ -41,12 +54,16 @@ class AnioController extends Controller
     {
         $request->validate([
             'anio' => 'required|integer|digits:4|min:1900|max:2100|unique:anios,anio,' . $anio->id,
+            'archivo_excel' => 'nullable|string',
         ], [
             'anio.unique' => 'Ese ano ya esta registrado.',
             'anio.digits' => 'El ano debe tener 4 digitos.',
         ]);
 
-        $anio->update(['anio' => $request->anio]);
+        $anio->update([
+            'anio' => $request->anio,
+            'archivo_excel' => $request->archivo_excel ?: null,
+        ]);
 
         return redirect()->route('admin.anios.index')->with('success', 'Ano actualizado correctamente.');
     }

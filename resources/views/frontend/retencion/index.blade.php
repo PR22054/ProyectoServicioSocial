@@ -6,37 +6,80 @@
 
 @section('page_content')
 
-    {{--select cargado con los anos disponibles de la tabla anios--}}
+    @if(session('buscar_error'))
+        <div class="alert alert-warning alert-dismissible">
+            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            {{ session('buscar_error') }}
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="alert alert-danger alert-dismissible">
+            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            {{ $errors->first() }}
+        </div>
+    @endif
+
     <div class="card mx-auto" style="max-width:550px">
         <div class="card-body">
 
-            <div class="form-group">
-                <label>Año</label>
-                <select class="form-control">
-                    <option value="">-- Seleccionar año --</option>
-                    @foreach($anios as $anio)
-                        <option value="{{ $anio->id }}">{{ $anio->anio }}</option>
-                    @endforeach
-                </select>
-            </div>
+            <form action="{{ route('retencion.buscar') }}" method="POST">
+                @csrf
 
-            {{--campo NIT/DUI: solo acepta 9 digitos, inserta guion automaticamente entre el 8 y 9--}}
-            <div class="form-group">
-                <label>NIT / DUI</label>
-                <input type="text" id="nitdui" class="form-control"
-                       placeholder="Ingrese NIT o DUI"
-                       maxlength="10"
-                       autocomplete="off">
-                <small class="form-text text-muted">Formato: XXXXXXXX-X</small>
-            </div>
+                {{--select cargado con los anos disponibles de la tabla anios--}}
+                <div class="form-group">
+                    <label>Año</label>
+                    <select name="anio_id" class="form-control">
+                        <option value="">-- Seleccionar año --</option>
+                        @foreach($anios as $anio)
+                            <option value="{{ $anio->id }}"
+                                {{ old('anio_id', $anioSel) == $anio->id ? 'selected' : '' }}>
+                                {{ $anio->anio }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
 
-            {{--boton buscar sin funcionalidad aun, se implementara en una etapa posterior--}}
-            <button type="button" class="btn btn-primary">
-                <i class="fas fa-search"></i> Buscar
-            </button>
+                {{--campo NIT/DUI: solo acepta 9 digitos, inserta guion automaticamente entre el 8 y 9--}}
+                <div class="form-group">
+                    <label>NIT / DUI</label>
+                    <input type="text" id="nitdui" name="nitdui" class="form-control"
+                           placeholder="Ingrese NIT o DUI"
+                           maxlength="10"
+                           value="{{ old('nitdui', $nitSel) }}"
+                           autocomplete="off">
+                    <small class="form-text text-muted">Formato: XXXXXXXX-X</small>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i> Buscar
+                </button>
+            </form>
 
         </div>
     </div>
+
+    {{--seccion de resultados visible unicamente despues de una busqueda exitosa--}}
+    @if($token)
+        <div class="card mt-4">
+            <div class="card-header d-flex align-items-center">
+                <i class="fas fa-file-pdf text-danger mr-2"></i>
+                <strong>
+                    @if($count == 1)
+                        1 constancia encontrada
+                    @else
+                        {{ $count }} constancias encontradas
+                    @endif
+                </strong>
+            </div>
+            <div class="card-body p-0">
+                <iframe src="{{ route('retencion.pdf.ver', $token) }}"
+                        width="100%"
+                        style="height:720px; border:none; display:block;">
+                </iframe>
+            </div>
+        </div>
+    @endif
 
 @stop
 

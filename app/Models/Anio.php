@@ -7,5 +7,5 @@ use Illuminate\Database\Eloquent\Model;
 
 class Anio extends Model
 {
-    protected $fillable = ['anio'];
+    protected $fillable = ['anio', 'archivo_excel'];
 }

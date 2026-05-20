@@ -20,20 +20,38 @@
     @endif
 
     <div class="card">
-        {{--formulario para agregar un nuevo ano en la parte superior de la tabla--}}
+        {{--formulario para agregar un nuevo ano con seleccion de archivo Excel--}}
         <div class="card-header">
-            <form action="{{ route('admin.anios.store') }}" method="POST" class="form-inline">
+            <form action="{{ route('admin.anios.store') }}" method="POST">
                 @csrf
-                <input type="number" name="anio"
-                       class="form-control mr-2"
-                       placeholder="Ej. 2025"
-                       min="1900" max="2100"
-                       value="{{ old('anio') }}"
-                       style="width:130px"
-                       required>
-                <button type="submit" class="btn btn-success">
-                    <i class="fas fa-plus"></i> Agregar Año
-                </button>
+                <div class="form-row align-items-end">
+                    <div class="col-auto">
+                        <label class="mb-1">Año</label>
+                        <input type="number" name="anio"
+                               class="form-control"
+                               placeholder="Ej. 2025"
+                               min="1900" max="2100"
+                               value="{{ old('anio') }}"
+                               style="width:130px"
+                               required>
+                    </div>
+                    <div class="col">
+                        <label class="mb-1">Archivo Excel</label>
+                        <select name="archivo_excel" class="form-control">
+                            <option value="">-- Sin archivo --</option>
+                            @foreach($archivos as $archivo)
+                                <option value="{{ $archivo }}" {{ old('archivo_excel') === $archivo ? 'selected' : '' }}>
+                                    {{ $archivo }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-plus"></i> Agregar Año
+                        </button>
+                    </div>
+                </div>
             </form>
         </div>
         <div class="card-body p-0">
@@ -41,6 +59,7 @@
                 <thead class="thead-dark">
                     <tr>
                         <th>Año</th>
+                        <th>Archivo Excel</th>
                         <th style="width:120px">Acciones</th>
                     </tr>
                 </thead>
@@ -48,6 +67,13 @@
                     @forelse($anios as $anio)
                     <tr>
                         <td class="align-middle">{{ $anio->anio }}</td>
+                        <td class="align-middle">
+                            @if($anio->archivo_excel)
+                                <span class="text-success"><i class="fas fa-file-excel mr-1"></i>{{ $anio->archivo_excel }}</span>
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
+                        </td>
                         <td>
                             <a href="{{ route('admin.anios.edit', $anio) }}" class="btn btn-sm btn-warning">
                                 <i class="fas fa-edit"></i>

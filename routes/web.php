@@ -29,6 +29,15 @@ Route::get('retencion', [RetencionController::class, 'index'])
     ->middleware(['auth', 'no-back'])
     ->name('retencion');
 
+Route::post('retencion/buscar', [RetencionController::class, 'buscar'])
+    ->middleware(['auth', 'no-back'])
+    ->name('retencion.buscar');
+
+//ruta para servir el PDF generado sin no-back para que el iframe pueda mostrarlo
+Route::get('retencion/pdf/{token}', [RetencionController::class, 'verPdf'])
+    ->middleware('auth')
+    ->name('retencion.pdf.ver');
+
 //rutas exclusivas del rol admin con /admin
 Route::middleware(['auth', 'role:admin', 'no-back'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'admin'])->name('dashboard');

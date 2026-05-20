@@ -5,7 +5,7 @@
 
 @section('page_content')
 
-    <div class="card mx-auto" style="max-width:360px">
+    <div class="card mx-auto" style="max-width:500px">
         <div class="card-body">
 
             @if($errors->any())
@@ -22,6 +22,19 @@
                            class="form-control @error('anio') is-invalid @enderror"
                            value="{{ old('anio', $anio->anio) }}"
                            min="1900" max="2100" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Archivo Excel</label>
+                    <select name="archivo_excel" class="form-control">
+                        <option value="">-- Sin archivo --</option>
+                        @foreach($archivos as $archivo)
+                            <option value="{{ $archivo }}"
+                                {{ old('archivo_excel', $anio->archivo_excel) === $archivo ? 'selected' : '' }}>
+                                {{ $archivo }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <button type="submit" class="btn btn-primary">Actualizar</button>

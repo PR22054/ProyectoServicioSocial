@@ -1,5 +1,6 @@
 <?php
 
+//agrega la columna archivo_excel (nullable) a la tabla anios para vincular un Excel por año
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

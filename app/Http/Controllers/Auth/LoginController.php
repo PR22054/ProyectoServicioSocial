@@ -24,11 +24,16 @@ class LoginController extends Controller
         ]);
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
-            $request->session()->regenerate();
+            //si el usuario no es admin se rechaza el acceso y se muestra error
+            if (!Auth::user()->hasRole('admin')) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+                return back()->withErrors(['usuario' => 'El acceso es exclusivo para administradores.'])->onlyInput('usuario');
+            }
 
-            return Auth::user()->hasRole('admin')
-                ? redirect()->route('admin.dashboard')
-                : redirect()->route('empleado.dashboard');
+            $request->session()->regenerate();
+            return redirect()->route('admin.dashboard');
         }
 
         //si las credenciales fallan regresa con error sin exponer detalles

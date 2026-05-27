@@ -9,6 +9,11 @@
 <style>
     .brand-link .brand-image { display: none !important; }
     .brand-link .brand-text { width: 100%; text-align: center; }
+    @guest
+    .main-sidebar, .main-sidebar::before { display: none !important; }
+    .content-wrapper, .main-footer { margin-left: 0 !important; }
+    [data-widget="pushmenu"] { display: none !important; }
+    @endguest
 </style>
 @stop
 

@@ -9,8 +9,8 @@ use App\Http\Controllers\RolController;
 use App\Http\Controllers\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
-//redirige la raiz al login
-Route::get('/', fn() => redirect()->route('login'));
+//redirige la raiz directamente a retencion (acceso publico sin login)
+Route::get('/', fn() => redirect()->route('retencion'));
 
 //rutas de autenticacion, solo accesibles para usuarios no autenticados (guest)
 Route::middleware('guest')->group(function () {
@@ -24,18 +24,14 @@ Route::get('logout', [LoginController::class, 'logout'])->name('logout')->middle
 //ruta home nombrada para que el middleware guest sepa a donde redirigir usuarios autenticados
 Route::get('/home', [DashboardController::class, 'redirect'])->middleware('auth')->name('home');
 
-//retencion es accesible tanto para admin como para empleado
+//retencion es publica: no requiere autenticacion
 Route::get('retencion', [RetencionController::class, 'index'])
-    ->middleware(['auth', 'no-back'])
     ->name('retencion');
 
 Route::post('retencion/buscar', [RetencionController::class, 'buscar'])
-    ->middleware(['auth', 'no-back'])
     ->name('retencion.buscar');
 
-//ruta para servir el PDF generado sin no-back para que el iframe pueda mostrarlo
 Route::get('retencion/pdf/{token}', [RetencionController::class, 'verPdf'])
-    ->middleware('auth')
     ->name('retencion.pdf.ver');
 
 //rutas exclusivas del rol admin con /admin

@@ -323,11 +323,12 @@ return [
             'icon' => 'fas fa-fw fa-user-tag',
             'can'  => 'admin-access',
         ],
-        ['header' => 'SESIÓN'],
+        ['header' => 'SESIÓN', 'can' => 'auth-access'],
         [
             'text' => 'Cerrar Sesión',
             'url'  => 'logout',
             'icon' => 'fas fa-fw fa-sign-out-alt',
+            'can'  => 'auth-access',
         ],
     ],
 

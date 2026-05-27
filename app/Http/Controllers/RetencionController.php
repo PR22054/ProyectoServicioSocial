@@ -15,7 +15,8 @@ class RetencionController extends Controller
     public function index()
     {
         $anios   = Anio::orderBy('anio', 'desc')->get();
-        $layout  = auth()->user()->hasRole('admin')
+        //si hay sesion de admin se usa el layout completo, de lo contrario el layout publico de empleado
+        $layout  = (auth()->check() && auth()->user()->hasRole('admin'))
             ? 'frontend.layouts.admin'
             : 'frontend.layouts.empleado';
 

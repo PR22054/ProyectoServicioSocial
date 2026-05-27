@@ -35,9 +35,7 @@
                         <td class="align-middle">
                             {{--si la fila corresponde al usuario autenticado se agrega confirmacion de cierre de sesion--}}
                             <form action="{{ route('admin.roles.update', $user) }}" method="POST" class="form-inline"
-                                @if($user->id === auth()->id())
-                                    onsubmit="return confirm('Se cerrara la sesion de este usuario al cambiar su rol. ¿Continuar?')"
-                                @endif>
+                                @if($user->id === auth()->id()) data-swal-rol @endif>
                                 @csrf
                                 @method('PATCH')
                                 <select name="rol" class="form-control form-control-sm mr-2">
@@ -55,3 +53,32 @@
     </div>
 
 @stop
+
+@push('js')
+<script>
+    //intercepta el submit del formulario de cambio de rol propio y pide confirmacion con SweetAlert
+    document.addEventListener('DOMContentLoaded', function () {
+        var selfForm = document.querySelector('form[data-swal-rol]');
+        if (selfForm) {
+            selfForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var form = this;
+                Swal.fire({
+                    title: '¿Cambiar tu propio rol?',
+                    text: 'Se cerrará tu sesión al cambiar el rol. ¿Continuar?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, continuar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#f0a500',
+                    cancelButtonColor: '#6c757d',
+                }).then(function (result) {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        }
+    });
+</script>
+@endpush

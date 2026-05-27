@@ -2,6 +2,7 @@
 @extends('adminlte::auth.auth-page', ['authType' => 'login'])
 
 @section('adminlte_css_pre')
+<link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
 <style>
     .login-logo a > b { display: none; }
 </style>

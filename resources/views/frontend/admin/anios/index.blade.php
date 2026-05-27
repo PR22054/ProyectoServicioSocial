@@ -78,11 +78,14 @@
                             <a href="{{ route('admin.anios.edit', $anio) }}" class="btn btn-sm btn-warning">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <form action="{{ route('admin.anios.destroy', $anio) }}" method="POST" class="d-inline">
+                            <form id="del-anio-{{ $anio->id }}" action="{{ route('admin.anios.destroy', $anio) }}" method="POST" class="d-inline">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-danger"
-                                    onclick="return confirm('¿Eliminar el año {{ $anio->anio }}?')">
+                                <button type="button" class="btn btn-sm btn-danger"
+                                    data-swal-delete
+                                    data-form="del-anio-{{ $anio->id }}"
+                                    data-msg="¿Eliminar el año {{ $anio->anio }}?"
+                                    data-icon="warning">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </form>

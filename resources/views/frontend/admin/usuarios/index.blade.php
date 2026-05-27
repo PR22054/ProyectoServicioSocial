@@ -44,19 +44,25 @@
                                class="btn btn-sm btn-warning">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <form action="{{ route('admin.usuarios.destroy', $user) }}"
+                            <form id="del-user-{{ $user->id }}" action="{{ route('admin.usuarios.destroy', $user) }}"
                                   method="POST" class="d-inline">
                                 @csrf
                                 @method('DELETE')
                                 {{--mensaje de confirmacion diferente si el usuario es el mismo que esta autenticado--}}
                                 @if(auth()->id() === $user->id)
-                                    <button type="submit" class="btn btn-sm btn-danger"
-                                        onclick="return confirm('¿Eliminar tu propio usuario? Esto cerrara tu sesion.')">
+                                    <button type="button" class="btn btn-sm btn-danger"
+                                        data-swal-delete
+                                        data-form="del-user-{{ $user->id }}"
+                                        data-msg="¿Eliminar tu propio usuario? Esto cerrará tu sesión."
+                                        data-icon="error">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 @else
-                                    <button type="submit" class="btn btn-sm btn-danger"
-                                        onclick="return confirm('¿Eliminar al usuario {{ $user->usuario }}?')">
+                                    <button type="button" class="btn btn-sm btn-danger"
+                                        data-swal-delete
+                                        data-form="del-user-{{ $user->id }}"
+                                        data-msg="¿Eliminar al usuario {{ $user->usuario }}?"
+                                        data-icon="warning">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 @endif

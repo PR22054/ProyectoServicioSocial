@@ -30,9 +30,19 @@ class RetencionController extends Controller
     //busca el NIT/DUI en el excel del ano seleccionado y genera las constancias en PDF
     public function buscar(Request $request)
     {
+        //si ambos campos estan vacios se muestra un mensaje que referencia los dos
+        if (!$request->filled('anio_id') && !$request->filled('nitdui')) {
+            return back()->withInput()
+                ->withErrors(['anio_id' => 'Debe seleccionar un año e ingresar el NIT/DUI para buscar.']);
+        }
+
         $request->validate([
             'anio_id' => 'required|exists:anios,id',
             'nitdui'  => 'required|string',
+        ], [
+            'anio_id.required' => 'Debe seleccionar un año.',
+            'anio_id.exists'   => 'El año seleccionado no es válido.',
+            'nitdui.required'  => 'Debe ingresar el NIT/DUI.',
         ]);
 
         $anio = Anio::find($request->anio_id);

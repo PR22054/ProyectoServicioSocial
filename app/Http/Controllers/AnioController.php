@@ -30,8 +30,8 @@ class AnioController extends Controller
             'anio' => 'required|integer|digits:4|min:1900|max:2100|unique:anios,anio',
             'archivo_excel' => 'nullable|string',
         ], [
-            'anio.unique' => 'Ese ano ya esta registrado.',
-            'anio.digits' => 'El ano debe tener 4 digitos.',
+            'anio.unique' => 'Ese año ya está registrado.',
+            'anio.digits' => 'El año debe tener 4 dígitos.',
         ]);
 
         Anio::create([
@@ -39,7 +39,7 @@ class AnioController extends Controller
             'archivo_excel' => $request->archivo_excel ?: null,
         ]);
 
-        return back()->with('success', 'Ano agregado correctamente.');
+        return back()->with('success', 'Año agregado correctamente.');
     }
 
     //muestra el formulario de edicion para un ano existente
@@ -56,8 +56,8 @@ class AnioController extends Controller
             'anio' => 'required|integer|digits:4|min:1900|max:2100|unique:anios,anio,' . $anio->id,
             'archivo_excel' => 'nullable|string',
         ], [
-            'anio.unique' => 'Ese ano ya esta registrado.',
-            'anio.digits' => 'El ano debe tener 4 digitos.',
+            'anio.unique' => 'Ese año ya está registrado.',
+            'anio.digits' => 'El año debe tener 4 dígitos.',
         ]);
 
         $anio->update([
@@ -65,13 +65,13 @@ class AnioController extends Controller
             'archivo_excel' => $request->archivo_excel ?: null,
         ]);
 
-        return redirect()->route('admin.anios.index')->with('success', 'Ano actualizado correctamente.');
+        return redirect()->route('admin.anios.index')->with('success', 'Año actualizado correctamente.');
     }
 
     //elimina el registro de ano de la BD
     public function destroy(Anio $anio)
     {
         $anio->delete();
-        return back()->with('success', 'Ano eliminado.');
+        return back()->with('success', 'Año eliminado.');
     }
 }

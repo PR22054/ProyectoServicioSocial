@@ -106,8 +106,21 @@
             //permite teclas de navegacion y edicion: backspace, delete, tab, flechas, inicio, fin
             var navegacion = [8, 9, 46, 35, 36, 37, 39];
             if (navegacion.indexOf(e.keyCode) !== -1) return;
+            //permite Ctrl+V y Cmd+V para pegar desde el portapapeles
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') return;
             //bloquea cualquier tecla que no sea un digito del 0 al 9
             if (!/^\d$/.test(e.key)) e.preventDefault();
+        });
+
+        //al pegar extrae solo los digitos y aplica el mismo formato XXXXXXXX-X
+        input.addEventListener('paste', function (e) {
+            e.preventDefault();
+            var texto  = (e.clipboardData || window.clipboardData).getData('text');
+            var digits = texto.replace(/\D/g, '');
+            if (digits.length > 9) digits = digits.substring(0, 9);
+            this.value = digits.length >= 9
+                ? digits.substring(0, 8) + '-' + digits.substring(8)
+                : digits;
         });
     });
 </script>

@@ -323,6 +323,13 @@ return [
             'icon' => 'fas fa-fw fa-user-tag',
             'can'  => 'admin-access',
         ],
+        ['header' => 'CONSULTAS', 'can' => 'admin-access'],
+        [
+            'text' => 'Consultas',
+            'url'  => 'admin/consultas',
+            'icon' => 'fas fa-fw fa-search',
+            'can'  => 'admin-access',
+        ],
         ['header' => 'SESIÓN', 'can' => 'auth-access'],
         [
             'text' => 'Cerrar Sesión',

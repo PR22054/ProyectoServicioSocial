@@ -3,6 +3,7 @@
 //rutas principales de la aplicacion, estan agrupadas por autenticacion y el rol
 use App\Http\Controllers\AnioController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\ConsultaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\RetencionController;
 use App\Http\Controllers\RolController;
@@ -51,6 +52,9 @@ Route::middleware(['auth', 'role:admin', 'no-back'])->prefix('admin')->name('adm
 
     //CRUD de users (sin la ruta show)
     Route::resource('usuarios', UsuarioController::class)->except(['show']);
+
+    //historial de busquedas de NIT/DUI
+    Route::get('consultas', [ConsultaController::class, 'index'])->name('consultas.index');
 });
 
 //rutas exclusivas del rol empleado con prefijo /empleado

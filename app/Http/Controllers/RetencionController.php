@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Anio;
+use App\Models\Consulta;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Mccarlosen\LaravelMpdf\Facades\LaravelMpdf as PDF;
@@ -80,12 +81,14 @@ class RetencionController extends Controller
 
         $html1 = null;
         $html2 = null;
+        $nombreConsulta = null;
 
         //buscar en hoja COD 01-60-80-81 (empleados con esos codigos de retencion)
         $sheet1 = $spreadsheet->getSheetByName('COD 01-60-80-81');
         if ($sheet1) {
             $fila = $this->buscarNit($sheet1, $nitBuscado);
             if ($fila) {
+                $nombreConsulta = $fila['B'];
                 $data = array_merge($fechaHoy, [
                     'nombre'            => $fila['B'],
                     'nit'               => $fila['C'],
@@ -109,6 +112,7 @@ class RetencionController extends Controller
         if ($sheet2) {
             $fila = $this->buscarNit($sheet2, $nitBuscado);
             if ($fila) {
+                if (!$nombreConsulta) $nombreConsulta = $fila['B'];
                 $data = array_merge($fechaHoy, [
                     'nombre'            => $fila['B'],
                     'nit'               => $fila['C'],
@@ -120,6 +124,13 @@ class RetencionController extends Controller
                 $html2 = view()->file(public_path('constancias/Cod_11-27-70-84.blade.php'), $data)->render();
             }
         }
+
+        //registrar la busqueda en la tabla consultas independientemente del resultado
+        Consulta::create([
+            'nitdui'     => $nitBuscado,
+            'nombre'     => $nombreConsulta,
+            'buscado_en' => now(),
+        ]);
 
         $encontrados = ($html1 ? 1 : 0) + ($html2 ? 1 : 0);
 

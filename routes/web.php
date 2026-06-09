@@ -53,8 +53,10 @@ Route::middleware(['auth', 'role:admin', 'no-back'])->prefix('admin')->name('adm
     //CRUD de users (sin la ruta show)
     Route::resource('usuarios', UsuarioController::class)->except(['show']);
 
-    //historial de busquedas de NIT/DUI
-    Route::get('consultas', [ConsultaController::class, 'index'])->name('consultas.index');
+    //reporte de consultas: formulario, generacion de PDF y visualizacion
+    Route::get('consultas',             [ConsultaController::class, 'index'])->name('consultas.index');
+    Route::post('consultas/generar',    [ConsultaController::class, 'generarPdf'])->name('consultas.generar');
+    Route::get('consultas/pdf/{token}', [ConsultaController::class, 'verPdf'])->name('consultas.pdf.ver');
 });
 
 //rutas exclusivas del rol empleado con prefijo /empleado

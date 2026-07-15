@@ -1,24 +1,56 @@
 @extends('frontend.layouts.admin')
-
 @section('page_title', 'Realizaciones por Periodo')
-
 @section('page_content')
+
     <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">
-                <i class="fas fa-receipt mr-2"></i>Realizaciones por Periodo
-            </h3>
-        </div>
+        <div class="card-header"><h3 class="card-title">Filtros</h3></div>
         <div class="card-body">
-            <p class="text-muted">
-                Reporte de todos los <strong>cobros de especies realizados en un rango de fechas</strong>,
-                con detalle del número de serie, tipo de especie, denominación, distrito, nombre
-                del contribuyente y monto cobrado.
-            </p>
-            <p class="text-muted mb-0">
-                Filtrable por distrito, tipo de especie y rango de fechas. Se generará en PDF
-                con totales por tipo y monto global del periodo.
-            </p>
+            <div class="row align-items-end">
+                <div class="col-md-3">
+                    <div class="form-group mb-0">
+                        <label>Distrito</label>
+                        <select name="distrito_id" class="form-control">
+                            <option value="">Todos</option>
+                            <option>Distrito Metapán</option>
+                            <option>Distrito Masahuat</option>
+                            <option>Distrito Santa Rosa Guachipilín</option>
+                            <option>Distrito Texistepeque</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group mb-0">
+                        <label>Tipo de especie</label>
+                        <select name="tipo_especie_id" class="form-control">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group mb-0">
+                        <label>Fecha desde <span class="text-danger">*</span></label>
+                        <input type="date" name="fecha_desde" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group mb-0">
+                        <label>Fecha hasta <span class="text-danger">*</span></label>
+                        <input type="date" name="fecha_hasta" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-primary btn-block" disabled>
+                        <i class="fas fa-file-pdf mr-1"></i>Generar
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
+
+    <div class="card">
+        <div class="card-body text-center text-muted py-4">
+            Muestra todos los cobros de especies realizados en el periodo seleccionado, con totales por tipo y monto global.
+        </div>
+    </div>
+
 @stop

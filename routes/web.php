@@ -62,8 +62,15 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
 
     //especies municipales: configuracion, compras, bodega, distritos, realizaciones y reportes
     Route::prefix('especies')->name('especies.')->group(function () {
-        Route::get('configuracion/tipos',          [ConfiguracionController::class,      'tipos'])->name('configuracion.tipos');
-        Route::get('configuracion/denominaciones', [ConfiguracionController::class,      'denominaciones'])->name('configuracion.denominaciones');
+        Route::get('configuracion/tipos',                        [ConfiguracionController::class, 'tipos'])->name('configuracion.tipos');
+        Route::post('configuracion/tipos',                       [ConfiguracionController::class, 'storeTipo'])->name('configuracion.tipos.store');
+        Route::patch('configuracion/tipos/{tipo}',               [ConfiguracionController::class, 'updateTipo'])->name('configuracion.tipos.update');
+        Route::delete('configuracion/tipos/{tipo}',              [ConfiguracionController::class, 'destroyTipo'])->name('configuracion.tipos.destroy');
+
+        Route::get('configuracion/denominaciones',               [ConfiguracionController::class, 'denominaciones'])->name('configuracion.denominaciones');
+        Route::post('configuracion/denominaciones',              [ConfiguracionController::class, 'storeDenominacion'])->name('configuracion.denominaciones.store');
+        Route::patch('configuracion/denominaciones/{denominacion}', [ConfiguracionController::class, 'updateDenominacion'])->name('configuracion.denominaciones.update');
+        Route::delete('configuracion/denominaciones/{denominacion}',[ConfiguracionController::class, 'destroyDenominacion'])->name('configuracion.denominaciones.destroy');
 
         Route::get('compras/registrar',            [EspecieCompraController::class,      'registrar'])->name('compras.registrar');
         Route::get('compras',                      [EspecieCompraController::class,      'historial'])->name('compras.historial');

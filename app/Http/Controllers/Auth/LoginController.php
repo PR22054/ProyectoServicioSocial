@@ -24,16 +24,28 @@ class LoginController extends Controller
         ]);
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
-            //si el usuario no es admin se rechaza el acceso y se muestra error
-            if (!Auth::user()->hasRole('admin')) {
-                Auth::logout();
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
-                return back()->withErrors(['usuario' => 'El acceso es exclusivo para administradores.'])->onlyInput('usuario');
+            $user = Auth::user();
+
+            if ($user->hasRole('admin')) {
+                $request->session()->regenerate();
+                return redirect()->route('admin.dashboard');
             }
 
-            $request->session()->regenerate();
-            return redirect()->route('admin.dashboard');
+            if ($user->hasRole('empleado')) {
+                $request->session()->regenerate();
+                return redirect()->route('admin.dashboard');
+            }
+
+            if ($user->hasRole('visitante')) {
+                $request->session()->regenerate();
+                return redirect()->route('empleado.dashboard');
+            }
+
+            //rol no reconocido: se deniega el acceso
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            return back()->withErrors(['usuario' => 'No tiene acceso al sistema.'])->onlyInput('usuario');
         }
 
         //si las credenciales fallan regresa con error sin exponer detalles

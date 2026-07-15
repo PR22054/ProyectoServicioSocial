@@ -301,17 +301,6 @@ return [
     'menu' => [
         ['header' => 'MENÚ PRINCIPAL'],
         [
-            'text' => 'Retención',
-            'url'  => 'retencion',
-            'icon' => 'fas fa-fw fa-file-alt',
-        ],
-        [
-            'text' => 'Años',
-            'url'  => 'admin/anios',
-            'icon' => 'fas fa-fw fa-calendar-alt',
-            'can'  => 'admin-access',
-        ],
-        [
             'text' => 'Usuarios',
             'url'  => 'admin/usuarios',
             'icon' => 'fas fa-fw fa-users',
@@ -323,12 +312,88 @@ return [
             'icon' => 'fas fa-fw fa-user-tag',
             'can'  => 'admin-access',
         ],
-        ['header' => 'CONSULTAS', 'can' => 'admin-access'],
+        ['header' => 'RENTA'],
         [
-            'text' => 'Consultas',
-            'url'  => 'admin/consultas',
-            'icon' => 'fas fa-fw fa-search',
-            'can'  => 'admin-access',
+            'text' => 'Retención',
+            'icon' => 'fas fa-fw fa-file-alt',
+            'submenu' => [
+                [
+                    'text' => 'Consulta de Retención',
+                    'url'  => 'retencion',
+                    'icon' => 'fas fa-fw fa-search',
+                ],
+                [
+                    'text' => 'Gestión de periodos',
+                    'url'  => 'admin/anios',
+                    'icon' => 'fas fa-fw fa-calendar-alt',
+                    'can'  => 'shared-access',
+                ],
+                [
+                    'text' => 'Historial de consultas',
+                    'url'  => 'admin/consultas',
+                    'icon' => 'fas fa-fw fa-history',
+                    'can'  => 'shared-access',
+                ],
+            ],
+        ],
+        ['header' => 'ESPECIES', 'can' => 'shared-access'],
+        [
+            'text' => 'Configuración',
+            'icon' => 'fas fa-fw fa-cog',
+            'can'  => 'shared-access',
+            'submenu' => [
+                ['text' => 'Tipos de Especie', 'url' => 'admin/especies/configuracion/tipos',          'icon' => 'fas fa-fw fa-tags',        'can' => 'shared-access'],
+                ['text' => 'Denominaciones',   'url' => 'admin/especies/configuracion/denominaciones', 'icon' => 'fas fa-fw fa-dollar-sign', 'can' => 'shared-access'],
+            ],
+        ],
+        [
+            'text' => 'Compras',
+            'icon' => 'fas fa-fw fa-shopping-cart',
+            'can'  => 'shared-access',
+            'submenu' => [
+                ['text' => 'Registrar compra',     'url' => 'admin/especies/compras/registrar', 'icon' => 'fas fa-fw fa-plus-circle', 'can' => 'shared-access'],
+                ['text' => 'Historial de compras', 'url' => 'admin/especies/compras',           'icon' => 'fas fa-fw fa-history',     'can' => 'shared-access'],
+            ],
+        ],
+        [
+            'text' => 'Bodega',
+            'icon' => 'fas fa-fw fa-warehouse',
+            'can'  => 'shared-access',
+            'submenu' => [
+                ['text' => 'Registrar traslado',    'url' => 'admin/especies/bodega/traslados/registrar', 'icon' => 'fas fa-fw fa-truck',          'can' => 'shared-access'],
+                ['text' => 'Historial de traslado', 'url' => 'admin/especies/bodega/traslados',           'icon' => 'fas fa-fw fa-clipboard-list', 'can' => 'shared-access'],
+                ['text' => 'Stock disponible',      'url' => 'admin/especies/bodega/stock',               'icon' => 'fas fa-fw fa-boxes',          'can' => 'shared-access'],
+            ],
+        ],
+        [
+            'text' => 'Distritos',
+            'icon' => 'fas fa-fw fa-map-marker-alt',
+            'can'  => 'shared-access',
+            'submenu' => [
+                ['text' => 'Registrar anulación', 'url' => 'admin/especies/distritos/anulaciones/registrar', 'icon' => 'fas fa-fw fa-ban',  'can' => 'shared-access'],
+                ['text' => 'Stock por distrito',  'url' => 'admin/especies/distritos/stock',                  'icon' => 'fas fa-fw fa-map',  'can' => 'shared-access'],
+            ],
+        ],
+        [
+            'text' => 'Realizaciones',
+            'icon' => 'fas fa-fw fa-cash-register',
+            'can'  => 'shared-access',
+            'submenu' => [
+                ['text' => 'Registro de realización', 'url' => 'admin/especies/realizaciones/registrar', 'icon' => 'fas fa-fw fa-receipt', 'can' => 'shared-access'],
+            ],
+        ],
+        [
+            'text' => 'Reportes',
+            'icon' => 'fas fa-fw fa-file-alt',
+            'can'  => 'shared-access',
+            'submenu' => [
+                ['text' => 'Libro de Especies',            'url' => 'admin/especies/reportes/libro',         'icon' => 'fas fa-fw fa-book',         'can' => 'shared-access'],
+                ['text' => 'Existencias en Bodega',        'url' => 'admin/especies/reportes/bodega',        'icon' => 'fas fa-fw fa-boxes',        'can' => 'shared-access'],
+                ['text' => 'Existencias por Distrito',     'url' => 'admin/especies/reportes/distritos',     'icon' => 'fas fa-fw fa-map',          'can' => 'shared-access'],
+                ['text' => 'Realizaciones por Periodo',    'url' => 'admin/especies/reportes/realizaciones', 'icon' => 'fas fa-fw fa-receipt',      'can' => 'shared-access'],
+                ['text' => 'Historial traslados',          'url' => 'admin/especies/reportes/traslados',     'icon' => 'fas fa-fw fa-exchange-alt', 'can' => 'shared-access'],
+                ['text' => 'Reporte Mensual por Distrito', 'url' => 'admin/especies/reportes/mensual',       'icon' => 'fas fa-fw fa-calendar-alt', 'can' => 'shared-access'],
+            ],
         ],
         ['header' => 'SESIÓN', 'can' => 'auth-access'],
         [

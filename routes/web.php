@@ -8,6 +8,12 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\RetencionController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\UsuarioController;
+use App\Http\Controllers\Especies\BodegaController;
+use App\Http\Controllers\Especies\CompraController as EspecieCompraController;
+use App\Http\Controllers\Especies\ConfiguracionController;
+use App\Http\Controllers\Especies\DistritoController as EspecieDistritoController;
+use App\Http\Controllers\Especies\RealizacionController as EspecieRealizacionController;
+use App\Http\Controllers\Especies\ReporteController as EspecieReporteController;
 use Illuminate\Support\Facades\Route;
 
 //redirige la raiz directamente a retencion (acceso publico sin login)
@@ -35,13 +41,17 @@ Route::post('retencion/buscar', [RetencionController::class, 'buscar'])
 Route::get('retencion/pdf/{token}', [RetencionController::class, 'verPdf'])
     ->name('retencion.pdf.ver');
 
-//rutas exclusivas del rol admin con /admin
+//rutas exclusivas del rol admin: gestion de usuarios y roles
 Route::middleware(['auth', 'role:admin', 'no-back'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('dashboard', [DashboardController::class, 'admin'])->name('dashboard');
-
-    //gestion de roles de usuarios
     Route::get('roles',          [RolController::class, 'index'])->name('roles.index');
     Route::patch('roles/{user}', [RolController::class, 'update'])->name('roles.update');
+
+    Route::resource('usuarios', UsuarioController::class)->except(['show']);
+});
+
+//rutas compartidas entre admin y empleado bajo el prefijo /admin
+Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('dashboard', [DashboardController::class, 'admin'])->name('dashboard');
 
     //CRUD de anos
     Route::get('anios',             [AnioController::class, 'index'])->name('anios.index');
@@ -50,8 +60,30 @@ Route::middleware(['auth', 'role:admin', 'no-back'])->prefix('admin')->name('adm
     Route::patch('anios/{anio}',    [AnioController::class, 'update'])->name('anios.update');
     Route::delete('anios/{anio}',   [AnioController::class, 'destroy'])->name('anios.destroy');
 
-    //CRUD de users (sin la ruta show)
-    Route::resource('usuarios', UsuarioController::class)->except(['show']);
+    //especies municipales: configuracion, compras, bodega, distritos, realizaciones y reportes
+    Route::prefix('especies')->name('especies.')->group(function () {
+        Route::get('configuracion/tipos',          [ConfiguracionController::class,      'tipos'])->name('configuracion.tipos');
+        Route::get('configuracion/denominaciones', [ConfiguracionController::class,      'denominaciones'])->name('configuracion.denominaciones');
+
+        Route::get('compras/registrar',            [EspecieCompraController::class,      'registrar'])->name('compras.registrar');
+        Route::get('compras',                      [EspecieCompraController::class,      'historial'])->name('compras.historial');
+
+        Route::get('bodega/traslados/registrar',   [BodegaController::class,             'trasladoRegistrar'])->name('bodega.traslado.registrar');
+        Route::get('bodega/traslados',             [BodegaController::class,             'trasladoHistorial'])->name('bodega.traslado.historial');
+        Route::get('bodega/stock',                 [BodegaController::class,             'stock'])->name('bodega.stock');
+
+        Route::get('distritos/anulaciones/registrar', [EspecieDistritoController::class, 'anulacionRegistrar'])->name('distritos.anulaciones.registrar');
+        Route::get('distritos/stock',                 [EspecieDistritoController::class, 'stock'])->name('distritos.stock');
+
+        Route::get('realizaciones/registrar',      [EspecieRealizacionController::class, 'registrar'])->name('realizaciones.registrar');
+
+        Route::get('reportes/libro',               [EspecieReporteController::class,     'libro'])->name('reportes.libro');
+        Route::get('reportes/bodega',              [EspecieReporteController::class,     'bodega'])->name('reportes.bodega');
+        Route::get('reportes/distritos',           [EspecieReporteController::class,     'distritos'])->name('reportes.distritos');
+        Route::get('reportes/realizaciones',       [EspecieReporteController::class,     'realizaciones'])->name('reportes.realizaciones');
+        Route::get('reportes/traslados',           [EspecieReporteController::class,     'traslados'])->name('reportes.traslados');
+        Route::get('reportes/mensual',             [EspecieReporteController::class,     'mensual'])->name('reportes.mensual');
+    });
 
     //reporte de consultas: formulario, generacion de PDF y visualizacion
     Route::get('consultas',             [ConsultaController::class, 'index'])->name('consultas.index');
@@ -59,7 +91,7 @@ Route::middleware(['auth', 'role:admin', 'no-back'])->prefix('admin')->name('adm
     Route::get('consultas/pdf/{token}', [ConsultaController::class, 'verPdf'])->name('consultas.pdf.ver');
 });
 
-//rutas exclusivas del rol empleado con prefijo /empleado
-Route::middleware(['auth', 'role:empleado', 'no-back'])->prefix('empleado')->name('empleado.')->group(function () {
+//rutas del portal visitante (solo dashboard basico, retencion es publica)
+Route::middleware(['auth', 'role:visitante', 'no-back'])->prefix('empleado')->name('empleado.')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'empleado'])->name('dashboard');
 });

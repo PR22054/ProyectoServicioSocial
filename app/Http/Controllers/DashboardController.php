@@ -10,9 +10,12 @@ class DashboardController extends Controller
     //redirige al dashboard correcto segun el rol del usuario autenticado
     public function redirect()
     {
-        if (auth()->user()->hasRole('admin')) {
+        $user = auth()->user();
+
+        if ($user->hasRole('admin') || $user->hasRole('empleado')) {
             return redirect()->route('admin.dashboard');
         }
+
         return redirect()->route('empleado.dashboard');
     }
 

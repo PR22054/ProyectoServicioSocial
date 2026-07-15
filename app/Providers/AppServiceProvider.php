@@ -17,10 +17,13 @@ class AppServiceProvider extends ServiceProvider
     {
         //define el Gate admin-access que usa el filtro de menu de AdminLTE
         //para mostrar u ocultar items del sidebar segun el rol del usuario
-        Gate::define('admin-access', fn($user) => $user->hasRole('admin'));
+        Gate::define('admin-access',  fn($user) => $user->hasRole('admin'));
+
+        // admin y empleado comparten dashboard, anos, especies y consultas
+        Gate::define('shared-access', fn($user) => $user->hasRole('admin') || $user->hasRole('empleado'));
 
         //gate para mostrar items de sesion solo a usuarios autenticados
         //cuando no hay sesion Gate::check retorna false y el item queda oculto
-        Gate::define('auth-access', fn($user) => true);
+        Gate::define('auth-access',   fn($user) => true);
     }
 }

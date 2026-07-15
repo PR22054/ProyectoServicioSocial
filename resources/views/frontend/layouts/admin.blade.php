@@ -27,7 +27,7 @@
 @stop
 
 @section('footer')
-    <strong>Sistema de Renta</strong> &mdash; Panel Admin
+    <strong>Portal {{ auth()->user()->hasRole('admin') ? 'Administrador' : 'Empleado' }}</strong>
 @stop
 
 @section('adminlte_js')

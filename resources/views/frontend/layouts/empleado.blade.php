@@ -32,7 +32,7 @@
 @stop
 
 @section('footer')
-    <strong>Sistema de Renta</strong> &mdash; Portal Empleado
+    <strong>Portal Visitante</strong>
 @stop
 
 @section('adminlte_js')

@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
         //primero crea  roles para poder asignarlos a usuarios
         $this->call(RolesSeeder::class);
         $this->call(EspeciesMunicipalesSeeder::class);
+        $this->call(DenominacionesSeeder::class);
 
         $admin = User::create([
             'usuario'  => 'admin',

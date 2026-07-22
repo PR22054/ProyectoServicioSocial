@@ -1,55 +1,56 @@
 @extends('frontend.layouts.admin')
 @section('page_title', 'Historial de Compras')
+
 @section('page_content')
 
     <div class="card">
-        <div class="card-header"><h3 class="card-title">Filtros</h3></div>
-        <div class="card-body">
-            <div class="row align-items-end">
-                <div class="col-md-3">
-                    <div class="form-group mb-0">
-                        <label>Fecha desde</label>
-                        <input type="date" name="fecha_desde" class="form-control">
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="form-group mb-0">
-                        <label>Fecha hasta</label>
-                        <input type="date" name="fecha_hasta" class="form-control">
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-group mb-0">
-                        <label>Tipo de especie</label>
-                        <select name="tipo_especie_id" class="form-control">
-                            <option value="">Todos</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <button type="button" class="btn btn-primary btn-block" disabled>
-                        <i class="fas fa-search mr-1"></i>Buscar
-                    </button>
-                </div>
+        <div class="card-header">
+            <h3 class="card-title">Compras registradas ({{ $compras->count() }})</h3>
+            <div class="card-tools">
+                <a href="{{ route('admin.especies.compras.crear') }}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-plus mr-1"></i>Registrar compra
+                </a>
             </div>
         </div>
-    </div>
-
-    <div class="card">
-        <div class="card-header"><h3 class="card-title">Resultados</h3></div>
         <div class="card-body p-0">
             <table class="table table-striped table-sm mb-0">
                 <thead>
                     <tr>
-                        <th>Fecha</th>
+                        <th style="width:12%">Fecha</th>
                         <th>N° Factura</th>
-                        <th class="text-center">Lotes</th>
-                        <th class="text-right">Monto total</th>
-                        <th class="text-center">Acciones</th>
+                        <th class="text-center" style="width:10%">Lotes</th>
+                        <th class="text-right" style="width:15%">Monto total</th>
+                        <th class="text-muted" style="width:30%">Observaciones</th>
+                        <th class="text-center" style="width:10%">Detalle</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td colspan="5" class="text-center text-muted py-3">Sin datos aún</td></tr>
+                    @forelse($compras as $compra)
+                    <tr>
+                        <td>{{ $compra->fecha->format('d/m/Y') }}</td>
+                        <td><strong>{{ $compra->numero_factura }}</strong></td>
+                        <td class="text-center">
+                            <span class="badge badge-info">{{ $compra->lotes_count }}</span>
+                        </td>
+                        <td class="text-right font-weight-bold text-success">
+                            ${{ number_format($compra->monto_total, 2) }}
+                        </td>
+                        <td class="text-muted small">{{ $compra->observaciones ?? '—' }}</td>
+                        <td class="text-center">
+                            <a href="{{ route('admin.especies.compras.show', $compra) }}"
+                               class="btn btn-xs btn-info">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            Sin compras registradas aún.
+                            <a href="{{ route('admin.especies.compras.crear') }}">Registrar la primera</a>.
+                        </td>
+                    </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

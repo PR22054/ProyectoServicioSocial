@@ -72,8 +72,15 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
         Route::patch('configuracion/denominaciones/{denominacion}', [ConfiguracionController::class, 'updateDenominacion'])->name('configuracion.denominaciones.update');
         Route::delete('configuracion/denominaciones/{denominacion}',[ConfiguracionController::class, 'destroyDenominacion'])->name('configuracion.denominaciones.destroy');
 
-        Route::get('compras/registrar',            [EspecieCompraController::class,      'registrar'])->name('compras.registrar');
-        Route::get('compras',                      [EspecieCompraController::class,      'historial'])->name('compras.historial');
+        Route::get('ajax/denominaciones',              [ConfiguracionController::class,      'ajaxDenominaciones'])->name('ajax.denominaciones');
+
+        Route::get('compras',                          [EspecieCompraController::class,      'historial'])->name('compras.historial');
+        Route::get('compras/crear',                    [EspecieCompraController::class,      'crear'])->name('compras.crear');
+        Route::post('compras',                         [EspecieCompraController::class,      'store'])->name('compras.store');
+        Route::get('compras/{compra}',                 [EspecieCompraController::class,      'show'])->name('compras.show');
+        Route::get('compras/{compra}/lotes/crear',     [EspecieCompraController::class,      'crearLote'])->name('compras.lotes.crear');
+        Route::post('compras/{compra}/lotes',          [EspecieCompraController::class,      'storeLote'])->name('compras.lotes.store');
+        Route::delete('compras/{compra}/lotes/{lote}', [EspecieCompraController::class,      'destroyLote'])->name('compras.lotes.destroy');
 
         Route::get('bodega/traslados/registrar',   [BodegaController::class,             'trasladoRegistrar'])->name('bodega.traslado.registrar');
         Route::get('bodega/traslados',             [BodegaController::class,             'trasladoHistorial'])->name('bodega.traslado.historial');

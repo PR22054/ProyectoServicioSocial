@@ -118,6 +118,15 @@ class ConfiguracionController extends Controller
         return back()->with('success_den', 'Denominación actualizada correctamente.');
     }
 
+    public function ajaxDenominaciones(Request $request)
+    {
+        $dens = Denominacion::where('tipo_especie_id', $request->tipo_especie_id)
+            ->where('activo', true)
+            ->orderBy('valor')
+            ->get(['id', 'valor']);
+        return response()->json($dens);
+    }
+
     public function destroyDenominacion(Denominacion $denominacion)
     {
         // proteger si ya está referenciada en lotes

@@ -351,7 +351,7 @@ return [
             'icon' => 'fas fa-fw fa-shopping-cart',
             'can'  => 'shared-access',
             'submenu' => [
-                ['text' => 'Registrar compra',     'url' => 'admin/especies/compras/registrar', 'icon' => 'fas fa-fw fa-plus-circle', 'can' => 'shared-access'],
+                ['text' => 'Registrar compra',     'url' => 'admin/especies/compras/crear',     'icon' => 'fas fa-fw fa-plus-circle', 'can' => 'shared-access'],
                 ['text' => 'Historial de compras', 'url' => 'admin/especies/compras',           'icon' => 'fas fa-fw fa-history',     'can' => 'shared-access'],
             ],
         ],

@@ -75,7 +75,7 @@
                 <tbody>
                     @forelse($tipos as $tipo)
                     <tr>
-                        <td>{{ $tipo->id }}</td>
+                        <td>{{ $loop->iteration }}</td>
                         <td>{{ $tipo->nombre }}</td>
                         <td class="text-muted">{{ $tipo->descripcion ?? '—' }}</td>
                         <td class="text-center">

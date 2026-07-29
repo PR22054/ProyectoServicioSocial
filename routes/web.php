@@ -82,9 +82,15 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
         Route::post('compras/{compra}/lotes',          [EspecieCompraController::class,      'storeLote'])->name('compras.lotes.store');
         Route::delete('compras/{compra}/lotes/{lote}', [EspecieCompraController::class,      'destroyLote'])->name('compras.lotes.destroy');
 
-        Route::get('bodega/traslados/registrar',   [BodegaController::class,             'trasladoRegistrar'])->name('bodega.traslado.registrar');
-        Route::get('bodega/traslados',             [BodegaController::class,             'trasladoHistorial'])->name('bodega.traslado.historial');
-        Route::get('bodega/stock',                 [BodegaController::class,             'stock'])->name('bodega.stock');
+        Route::get('ajax/lotes-stock',                                           [BodegaController::class, 'ajaxLotesStock'])->name('ajax.lotes-stock');
+        Route::get('bodega/traslados',                                           [BodegaController::class, 'trasladoHistorial'])->name('bodega.traslado.historial');
+        Route::get('bodega/traslados/crear',                                     [BodegaController::class, 'trasladoCrear'])->name('bodega.traslado.crear');
+        Route::post('bodega/traslados',                                          [BodegaController::class, 'trasladoStore'])->name('bodega.traslado.store');
+        Route::get('bodega/traslados/{traslado}',                                [BodegaController::class, 'trasladoShow'])->name('bodega.traslado.show');
+        Route::get('bodega/traslados/{traslado}/detalles/crear',                 [BodegaController::class, 'trasladoDetalleCrear'])->name('bodega.traslado.detalle.crear');
+        Route::post('bodega/traslados/{traslado}/detalles',                      [BodegaController::class, 'trasladoDetalleStore'])->name('bodega.traslado.detalle.store');
+        Route::delete('bodega/traslados/{traslado}/detalles/{detalle}',          [BodegaController::class, 'trasladoDetalleDestroy'])->name('bodega.traslado.detalle.destroy');
+        Route::get('bodega/stock',                                               [BodegaController::class, 'stock'])->name('bodega.stock');
 
         Route::get('distritos/anulaciones/registrar', [EspecieDistritoController::class, 'anulacionRegistrar'])->name('distritos.anulaciones.registrar');
         Route::get('distritos/stock',                 [EspecieDistritoController::class, 'stock'])->name('distritos.stock');

@@ -360,7 +360,7 @@ return [
             'icon' => 'fas fa-fw fa-warehouse',
             'can'  => 'shared-access',
             'submenu' => [
-                ['text' => 'Registrar traslado',    'url' => 'admin/especies/bodega/traslados/registrar', 'icon' => 'fas fa-fw fa-truck',          'can' => 'shared-access'],
+                ['text' => 'Registrar traslado',    'url' => 'admin/especies/bodega/traslados/crear', 'icon' => 'fas fa-fw fa-truck',          'can' => 'shared-access'],
                 ['text' => 'Historial de traslado', 'url' => 'admin/especies/bodega/traslados',           'icon' => 'fas fa-fw fa-clipboard-list', 'can' => 'shared-access'],
                 ['text' => 'Stock disponible',      'url' => 'admin/especies/bodega/stock',               'icon' => 'fas fa-fw fa-boxes',          'can' => 'shared-access'],
             ],

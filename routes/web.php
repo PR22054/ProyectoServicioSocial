@@ -78,6 +78,8 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
         Route::get('compras/crear',                    [EspecieCompraController::class,      'crear'])->name('compras.crear');
         Route::post('compras',                         [EspecieCompraController::class,      'store'])->name('compras.store');
         Route::get('compras/{compra}',                 [EspecieCompraController::class,      'show'])->name('compras.show');
+        Route::patch('compras/{compra}',               [EspecieCompraController::class,      'update'])->name('compras.update');
+        Route::delete('compras/{compra}',              [EspecieCompraController::class,      'destroy'])->name('compras.destroy');
         Route::get('compras/{compra}/lotes/crear',     [EspecieCompraController::class,      'crearLote'])->name('compras.lotes.crear');
         Route::post('compras/{compra}/lotes',          [EspecieCompraController::class,      'storeLote'])->name('compras.lotes.store');
         Route::delete('compras/{compra}/lotes/{lote}', [EspecieCompraController::class,      'destroyLote'])->name('compras.lotes.destroy');
@@ -87,6 +89,8 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
         Route::get('bodega/traslados/crear',                                     [BodegaController::class, 'trasladoCrear'])->name('bodega.traslado.crear');
         Route::post('bodega/traslados',                                          [BodegaController::class, 'trasladoStore'])->name('bodega.traslado.store');
         Route::get('bodega/traslados/{traslado}',                                [BodegaController::class, 'trasladoShow'])->name('bodega.traslado.show');
+        Route::patch('bodega/traslados/{traslado}',                              [BodegaController::class, 'trasladoUpdate'])->name('bodega.traslado.update');
+        Route::delete('bodega/traslados/{traslado}',                             [BodegaController::class, 'trasladoDestroy'])->name('bodega.traslado.destroy');
         Route::get('bodega/traslados/{traslado}/detalles/crear',                 [BodegaController::class, 'trasladoDetalleCrear'])->name('bodega.traslado.detalle.crear');
         Route::post('bodega/traslados/{traslado}/detalles',                      [BodegaController::class, 'trasladoDetalleStore'])->name('bodega.traslado.detalle.store');
         Route::delete('bodega/traslados/{traslado}/detalles/{detalle}',          [BodegaController::class, 'trasladoDetalleDestroy'])->name('bodega.traslado.detalle.destroy');

@@ -24,7 +24,9 @@ class BodegaController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        return view('frontend.admin.especies.bodega.traslados.historial', compact('traslados'));
+        $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
+
+        return view('frontend.admin.especies.bodega.traslados.historial', compact('traslados', 'distritos'));
     }
 
     public function trasladoCrear()
@@ -53,6 +55,44 @@ class BodegaController extends Controller
 
         return redirect()->route('admin.especies.bodega.traslado.show', $traslado)
             ->with('success', 'Traslado creado. Ahora agregue los detalles.');
+    }
+
+    public function trasladoUpdate(Request $request, Traslado $traslado)
+    {
+        $request->validate([
+            'distrito_id'   => 'required|exists:distritos,id',
+            'fecha'         => 'required|date',
+            'observaciones' => 'nullable|string|max:500',
+        ], [
+            'distrito_id.required' => 'Seleccione un distrito destino.',
+            'fecha.required'       => 'La fecha es obligatoria.',
+        ]);
+
+        $traslado->update([
+            'distrito_id'   => $request->distrito_id,
+            'fecha'         => $request->fecha,
+            'observaciones' => $request->observaciones,
+        ]);
+
+        return redirect()->route('admin.especies.bodega.traslado.historial')
+            ->with('success', 'Traslado actualizado correctamente.');
+    }
+
+    public function trasladoDestroy(Traslado $traslado)
+    {
+        $tieneNulas = \DB::table('nulas')
+            ->whereIn('traslado_detalle_id', $traslado->detalles()->pluck('id'))
+            ->exists();
+
+        if ($tieneNulas) {
+            return back()->with('error', 'No se puede eliminar: el traslado tiene anulaciones registradas.');
+        }
+
+        $traslado->detalles()->delete();
+        $traslado->delete();
+
+        return redirect()->route('admin.especies.bodega.traslado.historial')
+            ->with('success', 'Traslado eliminado correctamente.');
     }
 
     public function trasladoShow(Traslado $traslado)
@@ -145,15 +185,8 @@ class BodegaController extends Controller
 
     public function trasladoDetalleDestroy(Traslado $traslado, TrasladoDetalle $detalle)
     {
-        // Verificar si hay anulaciones que afecten este rango del lote
-        $tieneNulas = \DB::table('nulas')
-            ->where('lote_id', $detalle->lote_id)
-            ->where('numero_inicio', '<=', $detalle->numero_fin)
-            ->where('numero_fin', '>=', $detalle->numero_inicio)
-            ->exists();
-
-        if ($tieneNulas) {
-            return back()->with('error_detalle', 'No se puede eliminar: existen anulaciones registradas en este rango.');
+        if (\DB::table('nulas')->where('traslado_detalle_id', $detalle->id)->exists()) {
+            return back()->with('error_detalle', 'No se puede eliminar: este detalle tiene anulaciones registradas.');
         }
 
         $detalle->delete();
@@ -170,18 +203,25 @@ class BodegaController extends Controller
             ->with('denominacion', 'compra', 'rangos')
             ->get()
             ->map(function ($lote) {
-                $trasladado = TrasladoDetalle::where('lote_id', $lote->id)->sum('cantidad');
+                $detalles   = TrasladoDetalle::where('lote_id', $lote->id)
+                                ->orderBy('numero_inicio')
+                                ->get(['numero_inicio', 'numero_fin', 'cantidad']);
+                $trasladado = $detalles->sum('cantidad');
                 $disponible = $lote->cantidad_total - $trasladado;
                 return [
-                    'id'          => $lote->id,
-                    'label'       => 'Factura ' . $lote->compra->numero_factura
-                                   . ' — $' . number_format($lote->denominacion->valor, 2)
-                                   . ($lote->serie ? ' — Serie ' . $lote->serie : '')
-                                   . ' — Stock: ' . number_format($disponible),
-                    'disponible'  => $disponible,
-                    'rangos'      => $lote->rangos->map(fn($r) => [
+                    'id'               => $lote->id,
+                    'label'            => 'Factura ' . $lote->compra->numero_factura
+                                        . ' — $' . number_format($lote->denominacion->valor, 2)
+                                        . ($lote->serie ? ' — Serie ' . $lote->serie : '')
+                                        . ' — Stock: ' . number_format($disponible),
+                    'disponible'       => $disponible,
+                    'rangos'           => $lote->rangos->map(fn($r) => [
                         'inicio' => $r->numero_inicio,
                         'fin'    => $r->numero_fin,
+                    ]),
+                    'rangos_usados'    => $detalles->map(fn($d) => [
+                        'inicio' => $d->numero_inicio,
+                        'fin'    => $d->numero_fin,
                     ]),
                 ];
             })

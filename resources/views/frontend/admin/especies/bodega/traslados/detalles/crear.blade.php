@@ -55,6 +55,9 @@
                 <div id="rangosInfo" class="alert alert-info py-2" style="display:none">
                     <strong>Rangos del lote:</strong> <span id="rangosList"></span>
                     <br><strong>Stock disponible:</strong> <span id="stockDisp"></span>
+                    <span id="rangosUsadosRow" style="display:none">
+                        <br><strong>Ya trasladados:</strong> <span id="rangosUsadosList"></span>
+                    </span>
                 </div>
 
                 <div class="row">
@@ -127,8 +130,9 @@ document.getElementById('tipo_especie_id').addEventListener('change', function (
                     const opt       = document.createElement('option');
                     opt.value       = l.id;
                     opt.textContent = l.label;
-                    opt.dataset.disponible = l.disponible;
-                    opt.dataset.rangos     = JSON.stringify(l.rangos);
+                    opt.dataset.disponible   = l.disponible;
+                    opt.dataset.rangos       = JSON.stringify(l.rangos);
+                    opt.dataset.rangosUsados = JSON.stringify(l.rangos_usados);
                     loteEl.appendChild(opt);
                 });
                 loteEl.disabled = false;
@@ -145,12 +149,23 @@ document.getElementById('lote_id').addEventListener('change', function () {
         return;
     }
 
-    const rangos    = JSON.parse(selected.dataset.rangos || '[]');
-    const disp      = selected.dataset.disponible;
+    const rangos       = JSON.parse(selected.dataset.rangos || '[]');
+    const rangosUsados = JSON.parse(selected.dataset.rangosUsados || '[]');
+    const disp         = selected.dataset.disponible;
 
     document.getElementById('rangosList').textContent =
         rangos.map(r => r.inicio.toLocaleString() + ' – ' + r.fin.toLocaleString()).join(' | ');
-    document.getElementById('stockDisp').textContent  = Number(disp).toLocaleString();
+    document.getElementById('stockDisp').textContent = Number(disp).toLocaleString();
+
+    const usadosRow = document.getElementById('rangosUsadosRow');
+    if (rangosUsados.length > 0) {
+        document.getElementById('rangosUsadosList').textContent =
+            rangosUsados.map(r => r.inicio.toLocaleString() + ' – ' + r.fin.toLocaleString()).join(' | ');
+        usadosRow.style.display = '';
+    } else {
+        usadosRow.style.display = 'none';
+    }
+
     infoEl.style.display = '';
 });
 

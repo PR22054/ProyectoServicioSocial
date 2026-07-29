@@ -109,20 +109,27 @@ class CompraController extends Controller
             }
         }
 
-        // Sin solapamiento con lote_rangos existentes del mismo tipo
+        // Sin solapamiento con lote_rangos existentes del mismo tipo Y misma serie
         $tipoId = $request->tipo_especie_id;
+        $serie  = $request->serie ?: null;
+
         foreach ($rangos as $rango) {
             $inicio = (int) $rango['numero_inicio'];
             $fin    = (int) $rango['numero_fin'];
 
-            $overlap = LoteRango::whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipoId))
+            $overlap = LoteRango::whereHas('lote', function ($q) use ($tipoId, $serie) {
+                    $q->where('tipo_especie_id', $tipoId)
+                      ->where(fn($q2) => $serie
+                          ? $q2->where('serie', $serie)
+                          : $q2->whereNull('serie')->orWhere('serie', ''));
+                })
                 ->where('numero_inicio', '<=', $fin)
                 ->where('numero_fin', '>=', $inicio)
                 ->exists();
 
             if ($overlap) {
                 return back()
-                    ->withErrors(['rangos' => "El rango $inicio–$fin se solapa con un lote existente del mismo tipo de especie."])
+                    ->withErrors(['rangos' => "El rango {$inicio}–{$fin} ya existe en otro lote del mismo tipo" . ($serie ? " y serie «{$serie}»" : '') . '.'])
                     ->withInput();
             }
         }
@@ -154,6 +161,48 @@ class CompraController extends Controller
 
         return redirect()->route('admin.especies.compras.show', $compra)
             ->with('success_lote', 'Lote agregado correctamente.');
+    }
+
+    public function update(Request $request, Compra $compra)
+    {
+        $request->validate([
+            'numero_factura' => 'required|string|max:100|unique:compras,numero_factura,' . $compra->id,
+            'fecha'          => 'required|date',
+            'observaciones'  => 'nullable|string|max:500',
+        ], [
+            'numero_factura.required' => 'El número de factura es obligatorio.',
+            'numero_factura.unique'   => 'Ya existe una compra con ese número de factura.',
+            'fecha.required'          => 'La fecha es obligatoria.',
+        ]);
+
+        $compra->update([
+            'numero_factura' => $request->numero_factura,
+            'fecha'          => $request->fecha,
+            'observaciones'  => $request->observaciones,
+        ]);
+
+        return redirect()->route('admin.especies.compras.historial')
+            ->with('success', 'Compra actualizada correctamente.');
+    }
+
+    public function destroy(Compra $compra)
+    {
+        $tieneTraslados = \DB::table('traslado_detalles')
+            ->whereIn('lote_id', $compra->lotes()->pluck('id'))
+            ->exists();
+
+        if ($tieneTraslados) {
+            return back()->with('error', 'No se puede eliminar: la compra tiene lotes con traslados asociados.');
+        }
+
+        foreach ($compra->lotes as $lote) {
+            $lote->rangos()->delete();
+            $lote->delete();
+        }
+        $compra->delete();
+
+        return redirect()->route('admin.especies.compras.historial')
+            ->with('success', 'Compra eliminada correctamente.');
     }
 
     public function destroyLote(Compra $compra, Lote $lote)

@@ -96,8 +96,12 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
         Route::delete('bodega/traslados/{traslado}/detalles/{detalle}',          [BodegaController::class, 'trasladoDetalleDestroy'])->name('bodega.traslado.detalle.destroy');
         Route::get('bodega/stock',                                               [BodegaController::class, 'stock'])->name('bodega.stock');
 
-        Route::get('distritos/anulaciones/registrar', [EspecieDistritoController::class, 'anulacionRegistrar'])->name('distritos.anulaciones.registrar');
-        Route::get('distritos/stock',                 [EspecieDistritoController::class, 'stock'])->name('distritos.stock');
+        Route::get('ajax/detalles-disponibles',                            [EspecieDistritoController::class, 'ajaxDetallesDisponibles'])->name('ajax.detalles-disponibles');
+        Route::get('distritos/anulaciones',                                [EspecieDistritoController::class, 'anulacionHistorial'])->name('distritos.anulaciones.historial');
+        Route::get('distritos/anulaciones/crear',                          [EspecieDistritoController::class, 'anulacionCrear'])->name('distritos.anulaciones.crear');
+        Route::post('distritos/anulaciones',                               [EspecieDistritoController::class, 'anulacionStore'])->name('distritos.anulaciones.store');
+        Route::delete('distritos/anulaciones/{nula}',                      [EspecieDistritoController::class, 'anulacionDestroy'])->name('distritos.anulaciones.destroy');
+        Route::get('distritos/stock',                                      [EspecieDistritoController::class, 'stock'])->name('distritos.stock');
 
         Route::get('realizaciones/registrar',      [EspecieRealizacionController::class, 'registrar'])->name('realizaciones.registrar');
 

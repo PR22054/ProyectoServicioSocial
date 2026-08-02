@@ -75,6 +75,7 @@
                         <th style="width:4%">#</th>
                         <th>Tipo de especie</th>
                         <th>Denominación</th>
+                        <th>Factura</th>
                         <th class="text-center">Rango</th>
                         <th class="text-right">Cantidad</th>
                         <th class="text-center" style="width:8%">Acción</th>
@@ -85,6 +86,7 @@
                     <tr>
                         <td>{{ $loop->iteration }}</td>
                         <td>{{ $detalle->lote->tipoEspecie->nombre ?? '—' }}</td>
+                        <td>{{ $detalle->lote->compra->numero_factura ?? '—' }}</td>
                         <td>
                             ${{ number_format($detalle->lote->denominacion->valor ?? 0, 2) }}
                         </td>
@@ -109,7 +111,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="6" class="text-center text-muted py-3">Sin detalles. Use el botón para agregar.</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-3">Sin detalles. Use el botón para agregar.</td></tr>
                     @endforelse
                 </tbody>
             </table>

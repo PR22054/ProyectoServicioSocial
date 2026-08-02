@@ -370,8 +370,9 @@ return [
             'icon' => 'fas fa-fw fa-map-marker-alt',
             'can'  => 'shared-access',
             'submenu' => [
-                ['text' => 'Registrar anulación', 'url' => 'admin/especies/distritos/anulaciones/registrar', 'icon' => 'fas fa-fw fa-ban',  'can' => 'shared-access'],
-                ['text' => 'Stock por distrito',  'url' => 'admin/especies/distritos/stock',                  'icon' => 'fas fa-fw fa-map',  'can' => 'shared-access'],
+                ['text' => 'Registrar anulación',    'url' => 'admin/especies/distritos/anulaciones/crear',    'icon' => 'fas fa-fw fa-ban',           'can' => 'shared-access'],
+                ['text' => 'Historial de anulaciones','url' => 'admin/especies/distritos/anulaciones',         'icon' => 'fas fa-fw fa-clipboard-list', 'can' => 'shared-access'],
+                ['text' => 'Stock por distrito',      'url' => 'admin/especies/distritos/stock',               'icon' => 'fas fa-fw fa-map',            'can' => 'shared-access'],
             ],
         ],
         [

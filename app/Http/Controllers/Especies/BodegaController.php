@@ -101,7 +101,8 @@ class BodegaController extends Controller
             'distrito',
             'usuario',
             'detalles.lote.tipoEspecie',
-            'detalles.lote.denominacion'
+            'detalles.lote.denominacion',
+            'detalles.lote.compra'
         );
 
         return view('frontend.admin.especies.bodega.traslados.show', compact('traslado'));

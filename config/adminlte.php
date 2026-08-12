@@ -380,7 +380,8 @@ return [
             'icon' => 'fas fa-fw fa-cash-register',
             'can'  => 'shared-access',
             'submenu' => [
-                ['text' => 'Registro de realización', 'url' => 'admin/especies/realizaciones/registrar', 'icon' => 'fas fa-fw fa-receipt', 'can' => 'shared-access'],
+                ['text' => 'Registrar realización',    'url' => 'admin/especies/realizaciones/crear',    'icon' => 'fas fa-fw fa-receipt',         'can' => 'shared-access'],
+                ['text' => 'Historial de realizaciones','url' => 'admin/especies/realizaciones',          'icon' => 'fas fa-fw fa-clipboard-list',  'can' => 'shared-access'],
             ],
         ],
         [

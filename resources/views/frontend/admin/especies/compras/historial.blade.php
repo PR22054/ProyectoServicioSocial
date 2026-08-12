@@ -16,12 +16,13 @@
         </div>
     @endif
 
+    {{-- LISTADO DE COMPRAS CON OPCIONES DE VER, EDITAR Y ELIMINAR --}}
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Compras registradas ({{ $compras->count() }})</h3>
             <div class="card-tools">
                 <a href="{{ route('admin.especies.compras.crear') }}" class="btn btn-sm btn-primary">
-                    <i class="fas fa-plus mr-1"></i>Registrar compra
+                    Registrar compra
                 </a>
             </div>
         </div>

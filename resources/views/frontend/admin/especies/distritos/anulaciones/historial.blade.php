@@ -28,7 +28,7 @@
             @endif
         </form>
         <a href="{{ route('admin.especies.distritos.anulaciones.crear') }}" class="btn btn-primary">
-            <i class="fas fa-plus mr-1"></i> Registrar anulación
+            Registrar anulación
         </a>
     </div>
 

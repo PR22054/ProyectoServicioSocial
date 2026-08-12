@@ -34,7 +34,7 @@
                                    value="{{ old('nombre') }}" placeholder="Ej. Fondo Vialidad" maxlength="100">
                         </div>
                     </div>
-                    <div class="col-md-5">
+                    <div class="col-md-4">
                         <div class="form-group mb-0">
                             <label>Descripción <small class="text-muted">(opcional)</small></label>
                             <input type="text" name="descripcion" class="form-control"
@@ -48,9 +48,9 @@
                             <label class="custom-control-label" for="activo_new">Activo</label>
                         </div>
                     </div>
-                    <div class="col-md-1">
+                    <div class="col-md-2">
                         <button type="submit" class="btn btn-primary btn-block">
-                            <i class="fas fa-plus"></i>
+                            Agregar
                         </button>
                     </div>
                 </div>

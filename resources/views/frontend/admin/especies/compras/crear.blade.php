@@ -3,6 +3,7 @@
 
 @section('page_content')
 
+{{-- FORMULARIO PASO 1: DATOS GENERALES DE LA COMPRA, LUEGO SE AGREGAN LOS LOTES --}}
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Paso 1 — Datos de la compra</h3>
@@ -51,7 +52,7 @@
                 <div class="row">
                     <div class="col-md-12 text-right">
                         <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save mr-1"></i>Guardar — agregar lotes
+                            Guardar - Agregar lotes
                         </button>
                     </div>
                 </div>

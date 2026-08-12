@@ -62,7 +62,7 @@
                     </div>
                     <div class="col-md-2">
                         <button type="submit" class="btn btn-primary btn-block">
-                            <i class="fas fa-plus mr-1"></i>Agregar
+                            Agregar
                         </button>
                     </div>
                 </div>

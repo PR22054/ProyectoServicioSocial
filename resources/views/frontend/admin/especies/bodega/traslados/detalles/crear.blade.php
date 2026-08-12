@@ -3,6 +3,7 @@
 
 @section('page_content')
 
+{{-- FORMULARIO PARA AGREGAR UN LOTE Y RANGO DE NUMEROS AL TRASLADO SELECCIONADO --}}
     <div class="card mb-3">
         <div class="card-body py-2 d-flex justify-content-between align-items-center">
             <span>
@@ -35,10 +36,12 @@
 
                 <div class="form-group">
                     <label>Tipo de especie <span class="text-danger">*</span></label>
-                    <select id="tipo_especie_id" class="form-control">
+                    <select id="tipo_especie_id" name="tipo_especie_id" class="form-control">
                         <option value="">— Seleccione un tipo —</option>
                         @foreach($tipos as $tipo)
-                            <option value="{{ $tipo->id }}">{{ $tipo->nombre }}</option>
+                            <option value="{{ $tipo->id }}" {{ old('tipo_especie_id') == $tipo->id ? 'selected' : '' }}>
+                                {{ $tipo->nombre }}
+                            </option>
                         @endforeach
                     </select>
                 </div>
@@ -105,10 +108,35 @@
 <script>
 const ajaxUrl = '{{ route("admin.especies.ajax.lotes-stock") }}';
 
-document.getElementById('tipo_especie_id').addEventListener('change', function () {
-    const tipoId  = this.value;
-    const loteEl  = document.getElementById('lote_id');
-    const infoEl  = document.getElementById('rangosInfo');
+//CARGA LOS LOTES DISPONIBLES DEL TIPO SELECCIONADO VIA AJAX Y MUESTRA SUS RANGOS
+function mostrarInfoLote() {
+    const loteEl   = document.getElementById('lote_id');
+    const infoEl   = document.getElementById('rangosInfo');
+    if (!loteEl.value) { infoEl.style.display = 'none'; return; }
+
+    const selected     = loteEl.options[loteEl.selectedIndex];
+    const rangos       = JSON.parse(selected.dataset.rangos || '[]');
+    const rangosUsados = JSON.parse(selected.dataset.rangosUsados || '[]');
+
+    document.getElementById('rangosList').textContent =
+        rangos.map(r => r.inicio.toLocaleString() + ' – ' + r.fin.toLocaleString()).join(' | ');
+    document.getElementById('stockDisp').textContent = Number(selected.dataset.disponible).toLocaleString();
+
+    const usadosRow = document.getElementById('rangosUsadosRow');
+    if (rangosUsados.length > 0) {
+        document.getElementById('rangosUsadosList').textContent =
+            rangosUsados.map(r => r.inicio.toLocaleString() + ' – ' + r.fin.toLocaleString()).join(' | ');
+        usadosRow.style.display = '';
+    } else {
+        usadosRow.style.display = 'none';
+    }
+    infoEl.style.display = '';
+}
+
+function cargarLotes(restoreLoteId) {
+    const tipoId = document.getElementById('tipo_especie_id').value;
+    const loteEl = document.getElementById('lote_id');
+    const infoEl = document.getElementById('rangosInfo');
 
     loteEl.innerHTML = '<option value="">Cargando...</option>';
     loteEl.disabled  = true;
@@ -136,51 +164,36 @@ document.getElementById('tipo_especie_id').addEventListener('change', function (
                     loteEl.appendChild(opt);
                 });
                 loteEl.disabled = false;
+
+                if (restoreLoteId) {
+                    loteEl.value = restoreLoteId;
+                    mostrarInfoLote();
+                }
             }
         });
-});
+}
 
-document.getElementById('lote_id').addEventListener('change', function () {
-    const selected = this.options[this.selectedIndex];
-    const infoEl   = document.getElementById('rangosInfo');
-
-    if (!this.value) {
-        infoEl.style.display = 'none';
-        return;
-    }
-
-    const rangos       = JSON.parse(selected.dataset.rangos || '[]');
-    const rangosUsados = JSON.parse(selected.dataset.rangosUsados || '[]');
-    const disp         = selected.dataset.disponible;
-
-    document.getElementById('rangosList').textContent =
-        rangos.map(r => r.inicio.toLocaleString() + ' – ' + r.fin.toLocaleString()).join(' | ');
-    document.getElementById('stockDisp').textContent = Number(disp).toLocaleString();
-
-    const usadosRow = document.getElementById('rangosUsadosRow');
-    if (rangosUsados.length > 0) {
-        document.getElementById('rangosUsadosList').textContent =
-            rangosUsados.map(r => r.inicio.toLocaleString() + ' – ' + r.fin.toLocaleString()).join(' | ');
-        usadosRow.style.display = '';
-    } else {
-        usadosRow.style.display = 'none';
-    }
-
-    infoEl.style.display = '';
-});
+document.getElementById('tipo_especie_id').addEventListener('change', () => cargarLotes(null));
+document.getElementById('lote_id').addEventListener('change', mostrarInfoLote);
 
 function calcCantidad() {
     const ini = parseInt(document.getElementById('numero_inicio').value);
     const fin = parseInt(document.getElementById('numero_fin').value);
     const prev = document.getElementById('cantidad_preview');
-    if (!isNaN(ini) && !isNaN(fin) && fin >= ini) {
-        prev.value = (fin - ini + 1).toLocaleString();
-    } else {
-        prev.value = '';
-    }
+    prev.value = (!isNaN(ini) && !isNaN(fin) && fin >= ini)
+        ? (fin - ini + 1).toLocaleString() : '';
 }
 
 document.getElementById('numero_inicio').addEventListener('input', calcCantidad);
 document.getElementById('numero_fin').addEventListener('input', calcCantidad);
+
+// Auto-restaurar estado tras validación fallida (old())
+document.addEventListener('DOMContentLoaded', function () {
+    const tipoId = document.getElementById('tipo_especie_id').value;
+    if (tipoId) {
+        cargarLotes({{ old('lote_id') ?? 'null' }});
+    }
+    calcCantidad();
+});
 </script>
 @endpush

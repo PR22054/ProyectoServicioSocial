@@ -3,12 +3,15 @@
 
 @section('page_content')
 
+{{-- FORMULARIO PARA ANULAR DOCUMENTOS DE UN DETALLE DE TRASLADO EN EL DISTRITO --}}
     <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h3 class="card-title mb-0">Nueva anulación</h3>
-            <a href="{{ route('admin.especies.distritos.anulaciones.historial') }}" class="btn btn-sm btn-secondary">
-                <i class="fas fa-arrow-left mr-1"></i> Volver al historial
-            </a>
+        <div class="card-header">
+            <h3 class="card-title">Nueva anulación</h3>
+            <div class="card-tools">
+                <a href="{{ route('admin.especies.distritos.anulaciones.historial') }}" class="btn btn-sm btn-primary">
+                    Volver al historial
+                </a>
+            </div>
         </div>
         <div class="card-body">
 
@@ -42,10 +45,12 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>Tipo de especie <span class="text-danger">*</span></label>
-                            <select id="tipo_especie_id" class="form-control" disabled>
+                            <select id="tipo_especie_id" name="tipo_especie_id" class="form-control" disabled>
                                 <option value="">— Seleccione un distrito primero —</option>
                                 @foreach($tipos as $t)
-                                    <option value="{{ $t->id }}">{{ $t->nombre }}</option>
+                                    <option value="{{ $t->id }}" {{ old('tipo_especie_id') == $t->id ? 'selected' : '' }}>
+                                        {{ $t->nombre }}
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
@@ -120,12 +125,9 @@
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-between">
-                    <a href="{{ route('admin.especies.distritos.anulaciones.historial') }}" class="btn btn-secondary">
-                        Cancelar
-                    </a>
+                <div class="text-right">
                     <button type="submit" class="btn btn-danger">
-                        <i class="fas fa-ban mr-1"></i> Registrar anulación
+                        Registrar anulación
                     </button>
                 </div>
             </form>
@@ -143,7 +145,28 @@ const tipoEl     = document.getElementById('tipo_especie_id');
 const detalleEl  = document.getElementById('traslado_detalle_id');
 const infoEl     = document.getElementById('detalleInfo');
 
-function cargarDetalles() {
+function mostrarInfoDetalle() {
+    if (!detalleEl.value) { infoEl.style.display = 'none'; return; }
+    const sel        = detalleEl.options[detalleEl.selectedIndex];
+    const yaAnulados = JSON.parse(sel.dataset.yaAnulados || '[]');
+
+    document.getElementById('detalleRango').textContent =
+        Number(sel.dataset.inicio).toLocaleString() + ' – ' + Number(sel.dataset.fin).toLocaleString();
+    document.getElementById('detalleDisp').textContent =
+        Number(sel.dataset.disponible).toLocaleString();
+
+    const yaRow = document.getElementById('yaAnuladosRow');
+    if (yaAnulados.length > 0) {
+        document.getElementById('yaAnuladosList').textContent =
+            yaAnulados.map(n => n.inicio.toLocaleString() + ' – ' + n.fin.toLocaleString()).join(' | ');
+        yaRow.style.display = '';
+    } else {
+        yaRow.style.display = 'none';
+    }
+    infoEl.style.display = '';
+}
+
+function cargarDetalles(restoreDetalleId) {
     const distId = distritoEl.value;
     const tipoId = tipoEl.value;
     detalleEl.innerHTML = '<option value="">Cargando...</option>';
@@ -173,46 +196,24 @@ function cargarDetalles() {
                     detalleEl.appendChild(opt);
                 });
                 detalleEl.disabled = false;
+
+                if (restoreDetalleId) {
+                    detalleEl.value = restoreDetalleId;
+                    mostrarInfoDetalle();
+                }
             }
         });
 }
 
 distritoEl.addEventListener('change', function () {
     tipoEl.disabled = !this.value;
-    if (this.value) tipoEl.disabled = false;
-    cargarDetalles();
+    cargarDetalles(null);
 });
 
-tipoEl.addEventListener('change', cargarDetalles);
+tipoEl.addEventListener('change', () => cargarDetalles(null));
 
-// Habilita tipo_especie cuando hay distrito
-distritoEl.addEventListener('change', function () {
-    tipoEl.disabled = !this.value;
-});
+detalleEl.addEventListener('change', mostrarInfoDetalle);
 
-// Muestra info al seleccionar detalle
-detalleEl.addEventListener('change', function () {
-    if (!this.value) { infoEl.style.display = 'none'; return; }
-    const sel        = this.options[this.selectedIndex];
-    const yaAnulados = JSON.parse(sel.dataset.yaAnulados || '[]');
-
-    document.getElementById('detalleRango').textContent =
-        Number(sel.dataset.inicio).toLocaleString() + ' – ' + Number(sel.dataset.fin).toLocaleString();
-    document.getElementById('detalleDisp').textContent =
-        Number(sel.dataset.disponible).toLocaleString();
-
-    const yaRow = document.getElementById('yaAnuladosRow');
-    if (yaAnulados.length > 0) {
-        document.getElementById('yaAnuladosList').textContent =
-            yaAnulados.map(n => n.inicio.toLocaleString() + ' – ' + n.fin.toLocaleString()).join(' | ');
-        yaRow.style.display = '';
-    } else {
-        yaRow.style.display = 'none';
-    }
-    infoEl.style.display = '';
-});
-
-// Preview cantidad
 function calcCantidad() {
     const ini  = parseInt(document.getElementById('numero_inicio').value);
     const fin  = parseInt(document.getElementById('numero_fin').value);
@@ -224,6 +225,17 @@ document.getElementById('numero_inicio').addEventListener('input', calcCantidad)
 document.getElementById('numero_fin').addEventListener('input', calcCantidad);
 
 // Estado inicial
-tipoEl.disabled = true;
+tipoEl.disabled = !distritoEl.value;
+
+// Auto-restaurar estado tras validación fallida (old())
+document.addEventListener('DOMContentLoaded', function () {
+    if (distritoEl.value) {
+        tipoEl.disabled = false;
+        if (tipoEl.value) {
+            cargarDetalles({{ old('traslado_detalle_id') ?? 'null' }});
+        }
+    }
+    calcCantidad();
+});
 </script>
 @endpush

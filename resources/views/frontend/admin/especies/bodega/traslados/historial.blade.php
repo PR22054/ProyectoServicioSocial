@@ -16,9 +16,10 @@
         </div>
     @endif
 
+    {{-- LISTADO DE TRASLADOS CON OPCIONES DE VER, EDITAR Y ELIMINAR --}}
     <div class="mb-3">
         <a href="{{ route('admin.especies.bodega.traslado.crear') }}" class="btn btn-primary">
-            <i class="fas fa-plus mr-1"></i> Registrar traslado
+            Registrar traslado
         </a>
     </div>
 

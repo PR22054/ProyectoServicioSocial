@@ -103,8 +103,14 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
         Route::delete('distritos/anulaciones/{nula}',                      [EspecieDistritoController::class, 'anulacionDestroy'])->name('distritos.anulaciones.destroy');
         Route::get('distritos/stock',                                      [EspecieDistritoController::class, 'stock'])->name('distritos.stock');
 
-        Route::get('realizaciones/registrar',      [EspecieRealizacionController::class, 'registrar'])->name('realizaciones.registrar');
+        //REALIZACIONES
+        Route::get('realizaciones',                 [EspecieRealizacionController::class, 'historial'])->name('realizaciones.historial');
+        Route::get('realizaciones/crear',           [EspecieRealizacionController::class, 'crear'])->name('realizaciones.crear');
+        Route::post('realizaciones',                [EspecieRealizacionController::class, 'store'])->name('realizaciones.store');
+        Route::delete('realizaciones/{realizacion}',[EspecieRealizacionController::class, 'destroy'])->name('realizaciones.destroy');
+        Route::get('ajax/realizacion-info',         [EspecieRealizacionController::class, 'ajaxInfoDistritoTipo'])->name('ajax.realizacion-info');
 
+        //REPORTES DE ESPECIES
         Route::get('reportes/libro',               [EspecieReporteController::class,     'libro'])->name('reportes.libro');
         Route::get('reportes/bodega',              [EspecieReporteController::class,     'bodega'])->name('reportes.bodega');
         Route::get('reportes/distritos',           [EspecieReporteController::class,     'distritos'])->name('reportes.distritos');

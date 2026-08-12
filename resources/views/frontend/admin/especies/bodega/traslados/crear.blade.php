@@ -3,6 +3,7 @@
 
 @section('page_content')
 
+{{-- FORMULARIO DE NUEVO TRASLADO, LUEGO SE AGREGAN LOS DETALLES DE LOTES --}}
     <div class="card">
         <div class="card-header"><h3 class="card-title">Nuevo traslado</h3></div>
         <div class="card-body">
@@ -51,7 +52,7 @@
                         <i class="fas fa-arrow-left mr-1"></i> Cancelar
                     </a>
                     <button type="submit" class="btn btn-primary">
-                        Guardar — agregar detalles
+                        Guardar - Agregar detalles
                     </button>
                 </div>
             </form>

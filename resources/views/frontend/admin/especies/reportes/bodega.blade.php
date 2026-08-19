@@ -16,7 +16,7 @@
         <form method="GET" action="{{ route('admin.especies.reportes.bodega') }}" target="_blank">
             <input type="hidden" name="generar" value="1">
             <div class="row">
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <div class="form-group">
                         <label>Tipo de especie <span class="text-danger">*</span></label>
                         <select name="tipo_especie_id" class="form-control @error('tipo_especie_id') is-invalid @enderror" required>
@@ -31,17 +31,24 @@
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label>Fecha de corte <span class="text-danger">*</span></label>
-                        <input type="date" name="fecha_corte" class="form-control @error('fecha_corte') is-invalid @enderror"
-                               value="{{ request('fecha_corte', date('Y-m-d')) }}" required>
+                        <label>Fecha desde <span class="text-danger">*</span></label>
+                        <input type="date" name="fecha_desde" class="form-control @error('fecha_desde') is-invalid @enderror"
+                               value="{{ request('fecha_desde', date('Y-01-01')) }}" required>
                     </div>
                 </div>
-                <div class="col-md-3 d-flex align-items-end">
-                    <div class="form-group w-100">
-                        <button type="submit" class="btn btn-primary btn-block">
-                            <i class="fas fa-file-pdf mr-1"></i> Generar reporte
-                        </button>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>Fecha hasta <span class="text-danger">*</span></label>
+                        <input type="date" name="fecha_hasta" class="form-control @error('fecha_hasta') is-invalid @enderror"
+                               value="{{ request('fecha_hasta', date('Y-m-d')) }}" required>
                     </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3 ml-auto">
+                    <button type="submit" class="btn btn-primary btn-block">
+                        Generar reporte
+                    </button>
                 </div>
             </div>
         </form>

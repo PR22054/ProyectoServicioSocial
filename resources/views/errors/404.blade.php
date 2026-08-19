@@ -1,63 +1,47 @@
-@extends('adminlte::page')
-
-@section('title', 'Error 404')
-
-@section('content_header')
-    <h1>Error 404</h1>
-@stop
-{{-- Activa plugins que necesitas --}}
-@section('plugins.Datatables', true)
-@section('plugins.DatatablesPlugins', true)
-@section('plugins.Toastr', true)
-@section('plugins.Sweetalert2', true)
-
-@section('content_top_nav_right')
-
-    <li class="nav-item dropdown">
-        <a href="#" class="nav-link" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
-            <i class="fas fa-cogs"></i>
-            <span class="d-none d-md-inline">{{ Auth::guard('admin')->user()->nombre ?? 'Usuario' }}</span>
-        </a>
-
-        <div class="dropdown-menu dropdown-menu-right">
-            <a href="{{ route('admin.perfil') }}" class="dropdown-item">
-                <i class="fas fa-user mr-2"></i> Editar Perfil
-            </a>
-
-            <div class="dropdown-divider"></div>
-
-            <form action="{{ route('admin.logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dropdown-item">
-                    <i class="fas fa-sign-out-alt mr-2"></i> Cerrar Sesión
-                </button>
-            </form>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Error 404</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #f4f6f9;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh;
+        }
+        .card {
+            background: #fff; border-radius: 8px;
+            box-shadow: 0 2px 16px rgba(0,0,0,.1);
+            padding: 3rem 4rem; text-align: center;
+            max-width: 480px; width: 90%;
+        }
+        .code { font-size: 5rem; font-weight: 700; color: #fd7e14; line-height: 1; }
+        h2 { color: #343a40; margin: .75rem 0 .5rem; font-size: 1.4rem; }
+        p { color: #6c757d; margin-bottom: 2rem; font-size: .95rem; }
+        .actions { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
+        .btn {
+            display: inline-block; padding: .5rem 1.4rem;
+            border-radius: 4px; text-decoration: none;
+            font-size: .9rem; font-weight: 500; cursor: pointer;
+        }
+        .btn-primary { background: #007bff; color: #fff; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-secondary { background: #6c757d; color: #fff; }
+        .btn-secondary:hover { background: #545b62; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="code">404</div>
+        <h2>Pagina no encontrada</h2>
+        <p>La pagina que buscas no existe o fue movida. Verifica la URL o regresa al panel.</p>
+        <div class="actions">
+            <a href="javascript:history.back()" class="btn btn-secondary">Volver atras</a>
+            <a href="/admin/dashboard" class="btn btn-primary">Ir al panel</a>
         </div>
-    </li>
-
-@endsection
-
-@section('content')
-
-    <div id="divcontenedor">
-        <section class="content-header">
-            <div class="container-fluid">
-                <section class="content">
-                    <div class="error-page">
-                        <h2 class="headline text-danger">404</h2>
-
-                        <div class="error-content">
-                            <h3><i class="fas fa-exclamation-triangle text-danger"></i> Página no encontrada</h3>
-                        </div>
-                    </div>
-                </section>
-            </div>
-        </section>
     </div>
-
-@stop
-
-@section('js')
-
-
-@endsection
+</body>
+</html>

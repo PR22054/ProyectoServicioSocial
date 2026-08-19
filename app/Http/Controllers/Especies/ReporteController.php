@@ -115,7 +115,8 @@ class ReporteController extends Controller
         if ($request->has('generar')) {
             $request->validate([
                 'tipo_especie_id' => 'required|exists:tipo_especies,id',
-                'fecha_corte'     => 'required|date',
+                'fecha_desde'     => 'required|date',
+                'fecha_hasta'     => 'required|date|after_or_equal:fecha_desde',
             ]);
             return $this->pdfBodega($request);
         }
@@ -125,18 +126,20 @@ class ReporteController extends Controller
 
     private function pdfBodega(Request $request)
     {
-        $tipo       = TipoEspecie::findOrFail($request->tipo_especie_id);
-        $fechaCorte = Carbon::parse($request->fecha_corte)->endOfDay();
+        $tipo   = TipoEspecie::findOrFail($request->tipo_especie_id);
+        $desde  = Carbon::parse($request->fecha_desde)->startOfDay();
+        $hasta  = Carbon::parse($request->fecha_hasta)->endOfDay();
 
+        // Lotes de compras registradas dentro del rango de fechas
         $rangos = LoteRango::whereHas('lote',
                 fn($q) => $q->where('tipo_especie_id', $tipo->id)
-                            ->whereHas('compra', fn($q2) => $q2->where('fecha', '<=', $fechaCorte)))
+                            ->whereHas('compra', fn($q2) => $q2->whereBetween('fecha', [$desde, $hasta])))
             ->with(['lote.compra'])
             ->orderBy('lote_id')->orderBy('numero_inicio')->get();
 
-        // Cuánto fue trasladado de cada lote hasta la fecha corte
+        // Cuanto fue trasladado de cada lote hasta fecha_hasta
         $trasladado = TrasladoDetalle::whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipo->id))
-            ->whereHas('traslado', fn($q) => $q->where('fecha', '<=', $fechaCorte))
+            ->whereHas('traslado', fn($q) => $q->where('fecha', '<=', $hasta))
             ->selectRaw('lote_id, SUM(cantidad) as total')
             ->groupBy('lote_id')->pluck('total', 'lote_id');
 
@@ -148,10 +151,10 @@ class ReporteController extends Controller
         })->filter(fn($l) => $l['disponible'] > 0);
 
         $html = view('frontend.admin.especies.reportes.pdf.bodega',
-            compact('tipo', 'fechaCorte', 'lotes'))->render();
+            compact('tipo', 'desde', 'hasta', 'lotes'))->render();
 
         return PDF::loadHTML($html, $this->pdfConfig())
-            ->stream("bodega-{$tipo->id}-{$request->fecha_corte}.pdf");
+            ->stream("bodega-{$tipo->id}-{$request->fecha_desde}-{$request->fecha_hasta}.pdf");
     }
 
     // ─── EXISTENCIAS POR DISTRITO ────────────────────────────────────────────

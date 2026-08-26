@@ -395,6 +395,7 @@ return [
                 ['text' => 'Realizaciones por Periodo',    'url' => 'admin/especies/reportes/realizaciones', 'icon' => 'fas fa-fw fa-receipt',      'can' => 'shared-access'],
                 ['text' => 'Historial traslados',          'url' => 'admin/especies/reportes/traslados',     'icon' => 'fas fa-fw fa-exchange-alt', 'can' => 'shared-access'],
                 ['text' => 'Reporte Mensual por Distrito', 'url' => 'admin/especies/reportes/mensual',       'icon' => 'fas fa-fw fa-calendar-alt', 'can' => 'shared-access'],
+                ['text' => 'Control de Saldos',          'url' => 'admin/especies/reportes/saldos',         'icon' => 'fas fa-fw fa-balance-scale', 'can' => 'shared-access'],
             ],
         ],
         ['header' => 'SESIÓN', 'can' => 'auth-access'],

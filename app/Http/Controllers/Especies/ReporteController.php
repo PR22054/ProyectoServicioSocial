@@ -386,4 +386,63 @@ class ReporteController extends Controller
         return PDF::loadHTML($html, $this->pdfConfig())
             ->stream("mensual-{$mes}-{$anio}.pdf");
     }
+
+    // ─── CONTROL DE SALDOS ──────────────────────────────────────────────────
+    public function saldos(Request $request)
+    {
+        $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
+
+        if ($request->has('generar')) {
+            $request->validate([
+                'distrito_id' => 'required|exists:distritos,id',
+                'fecha_desde' => 'required|date',
+                'fecha_hasta' => 'required|date|after_or_equal:fecha_desde',
+            ]);
+            return $this->pdfSaldos($request);
+        }
+
+        return view('frontend.admin.especies.reportes.saldos', compact('distritos'));
+    }
+
+    private function pdfSaldos(Request $request)
+    {
+        $distrito = Distrito::findOrFail($request->distrito_id);
+        $desde    = Carbon::parse($request->fecha_desde)->startOfDay();
+        $hasta    = Carbon::parse($request->fecha_hasta)->endOfDay();
+
+        $realizaciones = Realizacion::where('distrito_id', $distrito->id)
+            ->whereBetween('fecha', [$desde, $hasta])
+            ->with(['tipoEspecie', 'denominacion'])
+            ->orderBy('tipo_especie_id')
+            ->orderBy('denominacion_id')
+            ->get();
+
+        // Agrupar por tipo de especie → denominacion con totales
+        $grupos = $realizaciones->groupBy('tipo_especie_id')->map(function ($rows) {
+            $tipo   = $rows->first()->tipoEspecie;
+            $denoms = $rows->groupBy('denominacion_id')->map(function ($dRows) {
+                return [
+                    'denominacion' => $dRows->first()->denominacion,
+                    'cantidad'     => $dRows->sum('cantidad'),
+                    'monto'        => $dRows->sum('monto_cobrado'),
+                ];
+            })->sortBy(fn($d) => $d['denominacion']->valor ?? 0)->values();
+
+            return [
+                'tipo'           => $tipo,
+                'denoms'         => $denoms,
+                'total_cantidad' => $denoms->sum('cantidad'),
+                'total_monto'    => $denoms->sum('monto'),
+            ];
+        })->sortBy(fn($g) => $g['tipo']->nombre ?? '')->values();
+
+        $totalGeneral  = $grupos->sum('total_monto');
+        $totalCantidad = $grupos->sum('total_cantidad');
+
+        $html = view('frontend.admin.especies.reportes.pdf.saldos',
+            compact('distrito', 'desde', 'hasta', 'grupos', 'totalGeneral', 'totalCantidad'))->render();
+
+        return PDF::loadHTML($html, $this->pdfConfig())
+            ->stream("saldos-{$distrito->codigo}-{$request->fecha_desde}-{$request->fecha_hasta}.pdf");
+    }
 }

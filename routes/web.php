@@ -117,6 +117,7 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
         Route::get('reportes/realizaciones',       [EspecieReporteController::class,     'realizaciones'])->name('reportes.realizaciones');
         Route::get('reportes/traslados',           [EspecieReporteController::class,     'traslados'])->name('reportes.traslados');
         Route::get('reportes/mensual',             [EspecieReporteController::class,     'mensual'])->name('reportes.mensual');
+        Route::get('reportes/saldos',              [EspecieReporteController::class,     'saldos'])->name('reportes.saldos');
     });
 
     //reporte de consultas: formulario, generacion de PDF y visualizacion

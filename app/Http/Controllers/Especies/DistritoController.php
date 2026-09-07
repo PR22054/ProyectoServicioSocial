@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Especies;
 use App\Http\Controllers\Controller;
 use App\Models\Distrito;
 use App\Models\Nula;
+use App\Models\Realizacion;
 use App\Models\TipoEspecie;
 use App\Models\TrasladoDetalle;
 use Illuminate\Http\Request;
@@ -72,7 +73,7 @@ class DistritoController extends Controller
                 ->withInput();
         }
 
-        $detalle = TrasladoDetalle::with('traslado')->findOrFail($request->traslado_detalle_id);
+        $detalle = TrasladoDetalle::with('traslado', 'lote')->findOrFail($request->traslado_detalle_id);
 
         // El traslado_detalle debe pertenecer al distrito indicado
         if ($detalle->traslado->distrito_id != $request->distrito_id) {
@@ -97,6 +98,19 @@ class DistritoController extends Controller
         if ($overlap) {
             return back()
                 ->withErrors(['numero_inicio' => 'Ese rango (o parte de él) ya fue anulado anteriormente.'])
+                ->withInput();
+        }
+
+        // Sin solapamiento con realizaciones ya registradas (no se puede anular lo ya entregado)
+        $overlapReal = Realizacion::where('tipo_especie_id', $detalle->lote->tipo_especie_id)
+            ->where('distrito_id', $request->distrito_id)
+            ->where('numero_inicio', '<=', $fin)
+            ->where('numero_fin',    '>=', $inicio)
+            ->exists();
+
+        if ($overlapReal) {
+            return back()
+                ->withErrors(['numero_inicio' => 'Ese rango (o parte de él) ya fue realizado y no puede anularse.'])
                 ->withInput();
         }
 

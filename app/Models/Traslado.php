@@ -6,13 +6,20 @@ use Illuminate\Database\Eloquent\Model;
 
 class Traslado extends Model
 {
-    protected $fillable = ['distrito_id', 'fecha', 'observaciones', 'usuario_id'];
+    protected $fillable = ['tipo', 'origen_distrito_id', 'distrito_id', 'fecha', 'observaciones', 'usuario_id'];
 
     protected $casts = ['fecha' => 'date'];
 
+    // Distrito destino (NULL = bodega para devoluciones)
     public function distrito()
     {
-        return $this->belongsTo(Distrito::class);
+        return $this->belongsTo(Distrito::class, 'distrito_id');
+    }
+
+    // Distrito origen (NULL = bodega para traslados normales)
+    public function origenDistrito()
+    {
+        return $this->belongsTo(Distrito::class, 'origen_distrito_id');
     }
 
     public function usuario()

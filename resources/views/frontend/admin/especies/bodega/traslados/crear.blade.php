@@ -3,7 +3,7 @@
 
 @section('page_content')
 
-{{-- FORMULARIO DE NUEVO TRASLADO, LUEGO SE AGREGAN LOS DETALLES DE LOTES --}}
+{{-- FORMULARIO DE NUEVO TRASLADO: SOPORTA BODEGA→DISTRITO, DISTRITO→BODEGA Y DISTRITO→DISTRITO --}}
     <div class="card">
         <div class="card-header"><h3 class="card-title">Nuevo traslado</h3></div>
         <div class="card-body">
@@ -11,9 +11,7 @@
             @if($errors->any())
                 <div class="alert alert-danger py-2">
                     <ul class="mb-0">
-                        @foreach($errors->all() as $e)
-                            <li>{{ $e }}</li>
-                        @endforeach
+                        @foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach
                     </ul>
                 </div>
             @endif
@@ -22,8 +20,31 @@
                 @csrf
 
                 <div class="form-group">
+                    <label>Tipo de traslado <span class="text-danger">*</span></label>
+                    <select name="tipo" id="tipo_traslado" class="form-control @error('tipo') is-invalid @enderror" required>
+                        <option value="bodega_distrito"  {{ old('tipo', $tipo) === 'bodega_distrito'  ? 'selected' : '' }}>Bodega → Distrito</option>
+                        <option value="distrito_bodega"  {{ old('tipo', $tipo) === 'distrito_bodega'  ? 'selected' : '' }}>Distrito → Bodega (devolución)</option>
+                        <option value="distrito_distrito"{{ old('tipo', $tipo) === 'distrito_distrito' ? 'selected' : '' }}>Distrito → Distrito</option>
+                    </select>
+                    @error('tipo')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
+                <div id="campo_origen" class="form-group" style="display:none">
+                    <label>Distrito origen <span class="text-danger">*</span></label>
+                    <select name="origen_distrito_id" class="form-control @error('origen_distrito_id') is-invalid @enderror">
+                        <option value="">— Seleccione —</option>
+                        @foreach($distritos as $d)
+                            <option value="{{ $d->id }}" {{ old('origen_distrito_id') == $d->id ? 'selected' : '' }}>
+                                {{ $d->nombre }}{{ $d->codigo ? ' (' . $d->codigo . ')' : '' }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('origen_distrito_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
+                <div id="campo_destino" class="form-group">
                     <label>Distrito destino <span class="text-danger">*</span></label>
-                    <select name="distrito_id" class="form-control @error('distrito_id') is-invalid @enderror" required>
+                    <select name="distrito_id" class="form-control @error('distrito_id') is-invalid @enderror">
                         <option value="">— Seleccione —</option>
                         @foreach($distritos as $d)
                             <option value="{{ $d->id }}" {{ old('distrito_id') == $d->id ? 'selected' : '' }}>
@@ -52,7 +73,7 @@
                         <i class="fas fa-arrow-left mr-1"></i> Cancelar
                     </a>
                     <button type="submit" class="btn btn-primary">
-                        Guardar - Agregar detalles
+                        Guardar — Agregar detalles
                     </button>
                 </div>
             </form>
@@ -60,3 +81,23 @@
     </div>
 
 @stop
+
+@push('js')
+<script>
+function actualizarCampos() {
+    const tipo    = document.getElementById('tipo_traslado').value;
+    const origen  = document.getElementById('campo_origen');
+    const destino = document.getElementById('campo_destino');
+
+    origen.style.display  = (tipo === 'distrito_bodega' || tipo === 'distrito_distrito') ? '' : 'none';
+    destino.style.display = (tipo === 'bodega_distrito' || tipo === 'distrito_distrito') ? '' : 'none';
+
+    // Required según visibilidad
+    origen.querySelector('select').required  = (tipo !== 'bodega_distrito');
+    destino.querySelector('select').required = (tipo !== 'distrito_bodega');
+}
+
+document.getElementById('tipo_traslado').addEventListener('change', actualizarCampos);
+document.addEventListener('DOMContentLoaded', actualizarCampos);
+</script>
+@endpush

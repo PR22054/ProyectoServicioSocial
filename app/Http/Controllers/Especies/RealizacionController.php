@@ -152,6 +152,13 @@ class RealizacionController extends Controller
 
         $recibido = $detalles->sum('cantidad');
 
+        // Documentos que salieron del distrito (devueltos a bodega o enviados a otro distrito)
+        $salido = TrasladoDetalle::whereHas('traslado', fn($q) =>
+                $q->whereIn('tipo', ['distrito_bodega', 'distrito_distrito'])
+                  ->where('origen_distrito_id', $distId))
+            ->whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipoId))
+            ->sum('cantidad');
+
         $anulado = Nula::whereHas('trasladoDetalle', function ($q) use ($distId, $tipoId) {
                 $q->whereHas('traslado', fn($q2) => $q2->where('distrito_id', $distId))
                   ->whereHas('lote',     fn($q2) => $q2->where('tipo_especie_id', $tipoId));
@@ -163,7 +170,7 @@ class RealizacionController extends Controller
             ->where('distrito_id', $distId)
             ->sum('cantidad');
 
-        $disponible = $recibido - $anulado - $realizado;
+        $disponible = $recibido - $salido - $anulado - $realizado;
 
         $denominaciones = Denominacion::where('tipo_especie_id', $tipoId)
             ->where('activo', true)
@@ -175,7 +182,7 @@ class RealizacionController extends Controller
             'fin'    => $d->numero_fin,
         ]);
 
-        return response()->json(compact('disponible', 'recibido', 'anulado', 'realizado', 'rangos', 'denominaciones'));
+        return response()->json(compact('disponible', 'recibido', 'salido', 'anulado', 'realizado', 'rangos', 'denominaciones'));
     }
 
     private function rangoCubierto(int $distId, int $tipoId, int $inicio, int $fin): bool
@@ -195,6 +202,16 @@ class RealizacionController extends Controller
             $cubierto = max($cubierto, $d->numero_fin + 1);
             if ($cubierto > $fin) return true;
         }
-        return $cubierto > $fin;
+
+        if ($cubierto <= $fin) return false;
+
+        // Verificar que ninguna parte del rango salió del distrito (devolucion o traslado a otro distrito)
+        return !TrasladoDetalle::whereHas('traslado', fn($q) =>
+                $q->whereIn('tipo', ['distrito_bodega', 'distrito_distrito'])
+                  ->where('origen_distrito_id', $distId))
+            ->whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipoId))
+            ->where('numero_inicio', '<=', $fin)
+            ->where('numero_fin', '>=', $inicio)
+            ->exists();
     }
 }

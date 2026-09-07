@@ -25,7 +25,16 @@
     {{-- encabezado del traslado --}}
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h3 class="card-title mb-0">Traslado #{{ $traslado->id }}</h3>
+            <h3 class="card-title mb-0">
+                Traslado #{{ $traslado->id }}
+                @if($traslado->tipo === 'bodega_distrito')
+                    <span class="badge badge-success ml-2">Bodega → Distrito</span>
+                @elseif($traslado->tipo === 'distrito_bodega')
+                    <span class="badge badge-warning ml-2">Devolución a Bodega</span>
+                @else
+                    <span class="badge badge-info ml-2">Entre Distritos</span>
+                @endif
+            </h3>
             <a href="{{ route('admin.especies.bodega.traslado.historial') }}" class="btn btn-sm btn-secondary">
                 <i class="fas fa-arrow-left mr-1"></i> Volver al historial
             </a>
@@ -36,20 +45,49 @@
                     <strong>Fecha</strong><br>
                     {{ $traslado->fecha->format('d/m/Y') }}
                 </div>
-                <div class="col-md-4">
-                    <strong>Distrito destino</strong><br>
-                    {{ $traslado->distrito->nombre ?? '—' }}
-                    @if($traslado->distrito && $traslado->distrito->codigo)
-                        <span class="text-muted">({{ $traslado->distrito->codigo }})</span>
-                    @endif
-                </div>
-                <div class="col-md-3">
-                    <strong>Registrado por</strong><br>
-                    {{ $traslado->usuario->usuario ?? '—' }}
-                </div>
-                <div class="col-md-2">
-                    <strong>Total especies</strong><br>
-                    <span class="badge badge-primary badge-lg" style="font-size:.9rem">
+
+                @if($traslado->tipo === 'bodega_distrito')
+                    <div class="col-md-4">
+                        <strong>Origen</strong><br>Bodega central
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Destino</strong><br>
+                        {{ $traslado->distrito->nombre ?? '—' }}
+                        @if($traslado->distrito?->codigo)
+                            <span class="text-muted">({{ $traslado->distrito->codigo }})</span>
+                        @endif
+                    </div>
+                @elseif($traslado->tipo === 'distrito_bodega')
+                    <div class="col-md-4">
+                        <strong>Origen</strong><br>
+                        {{ $traslado->origenDistrito->nombre ?? '—' }}
+                        @if($traslado->origenDistrito?->codigo)
+                            <span class="text-muted">({{ $traslado->origenDistrito->codigo }})</span>
+                        @endif
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Destino</strong><br>Bodega central
+                    </div>
+                @else
+                    <div class="col-md-4">
+                        <strong>Origen</strong><br>
+                        {{ $traslado->origenDistrito->nombre ?? '—' }}
+                        @if($traslado->origenDistrito?->codigo)
+                            <span class="text-muted">({{ $traslado->origenDistrito->codigo }})</span>
+                        @endif
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Destino</strong><br>
+                        {{ $traslado->distrito->nombre ?? '—' }}
+                        @if($traslado->distrito?->codigo)
+                            <span class="text-muted">({{ $traslado->distrito->codigo }})</span>
+                        @endif
+                    </div>
+                @endif
+
+                <div class="col-md-1">
+                    <strong>Total</strong><br>
+                    <span class="badge badge-primary" style="font-size:.9rem">
                         {{ number_format($traslado->detalles->sum('cantidad')) }}
                     </span>
                 </div>
@@ -87,9 +125,7 @@
                         <td>{{ $loop->iteration }}</td>
                         <td>{{ $detalle->lote->tipoEspecie->nombre ?? '—' }}</td>
                         <td>{{ $detalle->lote->compra->numero_factura ?? '—' }}</td>
-                        <td>
-                            ${{ number_format($detalle->lote->denominacion->valor ?? 0, 2) }}
-                        </td>
+                        <td>${{ number_format($detalle->lote->denominacion->valor ?? 0, 2) }}</td>
                         <td class="text-center">
                             <span class="badge badge-secondary">
                                 {{ number_format($detalle->numero_inicio) }} — {{ number_format($detalle->numero_fin) }}

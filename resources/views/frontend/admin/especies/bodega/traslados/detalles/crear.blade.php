@@ -3,13 +3,22 @@
 
 @section('page_content')
 
-{{-- FORMULARIO PARA AGREGAR UN LOTE Y RANGO DE NUMEROS AL TRASLADO SELECCIONADO --}}
+{{-- FORMULARIO PARA AGREGAR UN LOTE Y RANGO AL TRASLADO; EL AJAX CAMBIA SEGUN EL TIPO --}}
     <div class="card mb-3">
         <div class="card-body py-2 d-flex justify-content-between align-items-center">
             <span>
-                <strong>Traslado #{{ $traslado->id }}</strong> —
-                {{ $traslado->distrito->nombre ?? '—' }} —
-                {{ $traslado->fecha->format('d/m/Y') }}
+                <strong>Traslado #{{ $traslado->id }}</strong>
+                @if($traslado->tipo === 'bodega_distrito')
+                    <span class="badge badge-success">Bodega → Distrito</span>
+                    — {{ $traslado->distrito->nombre ?? '—' }}
+                @elseif($traslado->tipo === 'distrito_bodega')
+                    <span class="badge badge-warning">Devolución</span>
+                    — {{ $traslado->origenDistrito->nombre ?? '—' }} → Bodega
+                @else
+                    <span class="badge badge-info">Entre Distritos</span>
+                    — {{ $traslado->origenDistrito->nombre ?? '—' }} → {{ $traslado->distrito->nombre ?? '—' }}
+                @endif
+                — {{ $traslado->fecha->format('d/m/Y') }}
             </span>
             <a href="{{ route('admin.especies.bodega.traslado.show', $traslado) }}" class="btn btn-sm btn-secondary">
                 <i class="fas fa-arrow-left mr-1"></i> Volver
@@ -24,9 +33,7 @@
             @if($errors->any())
                 <div class="alert alert-danger py-2">
                     <ul class="mb-0">
-                        @foreach($errors->all() as $e)
-                            <li>{{ $e }}</li>
-                        @endforeach
+                        @foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach
                     </ul>
                 </div>
             @endif
@@ -54,12 +61,11 @@
                     @error('lote_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
 
-                {{-- info de rangos disponibles --}}
                 <div id="rangosInfo" class="alert alert-info py-2" style="display:none">
-                    <strong>Rangos del lote:</strong> <span id="rangosList"></span>
+                    <strong>Rangos disponibles:</strong> <span id="rangosList"></span>
                     <br><strong>Stock disponible:</strong> <span id="stockDisp"></span>
                     <span id="rangosUsadosRow" style="display:none">
-                        <br><strong>Ya trasladados:</strong> <span id="rangosUsadosList"></span>
+                        <br><strong>Ya transferidos:</strong> <span id="rangosUsadosList"></span>
                     </span>
                 </div>
 
@@ -106,12 +112,16 @@
 
 @push('js')
 <script>
-const ajaxUrl = '{{ route("admin.especies.ajax.lotes-stock") }}';
+// Tipo del traslado para elegir el endpoint correcto
+const TRASLADO_TIPO       = '{{ $traslado->tipo }}';
+const TRASLADO_ORIGEN_ID  = {{ $traslado->origen_distrito_id ?? 'null' }};
 
-//CARGA LOS LOTES DISPONIBLES DEL TIPO SELECCIONADO VIA AJAX Y MUESTRA SUS RANGOS
+const ajaxBodegaUrl    = '{{ route("admin.especies.ajax.lotes-stock") }}';
+const ajaxDistritoUrl  = '{{ route("admin.especies.ajax.lotes-distrito-stock") }}';
+
 function mostrarInfoLote() {
-    const loteEl   = document.getElementById('lote_id');
-    const infoEl   = document.getElementById('rangosInfo');
+    const loteEl = document.getElementById('lote_id');
+    const infoEl = document.getElementById('rangosInfo');
     if (!loteEl.value) { infoEl.style.display = 'none'; return; }
 
     const selected     = loteEl.options[loteEl.selectedIndex];
@@ -147,7 +157,15 @@ function cargarLotes(restoreLoteId) {
         return;
     }
 
-    fetch(ajaxUrl + '?tipo_especie_id=' + tipoId)
+    // Endpoint y parametros segun tipo de traslado
+    let url;
+    if (TRASLADO_TIPO === 'bodega_distrito') {
+        url = ajaxBodegaUrl + '?tipo_especie_id=' + tipoId;
+    } else {
+        url = ajaxDistritoUrl + '?tipo_especie_id=' + tipoId + '&distrito_id=' + TRASLADO_ORIGEN_ID;
+    }
+
+    fetch(url)
         .then(r => r.json())
         .then(lotes => {
             if (lotes.length === 0) {
@@ -155,12 +173,12 @@ function cargarLotes(restoreLoteId) {
             } else {
                 loteEl.innerHTML = '<option value="">— Seleccione un lote —</option>';
                 lotes.forEach(l => {
-                    const opt       = document.createElement('option');
-                    opt.value       = l.id;
-                    opt.textContent = l.label;
-                    opt.dataset.disponible   = l.disponible;
-                    opt.dataset.rangos       = JSON.stringify(l.rangos);
-                    opt.dataset.rangosUsados = JSON.stringify(l.rangos_usados);
+                    const opt             = document.createElement('option');
+                    opt.value             = l.id;
+                    opt.textContent       = l.label;
+                    opt.dataset.disponible    = l.disponible;
+                    opt.dataset.rangos        = JSON.stringify(l.rangos);
+                    opt.dataset.rangosUsados  = JSON.stringify(l.rangos_usados);
                     loteEl.appendChild(opt);
                 });
                 loteEl.disabled = false;
@@ -177,8 +195,8 @@ document.getElementById('tipo_especie_id').addEventListener('change', () => carg
 document.getElementById('lote_id').addEventListener('change', mostrarInfoLote);
 
 function calcCantidad() {
-    const ini = parseInt(document.getElementById('numero_inicio').value);
-    const fin = parseInt(document.getElementById('numero_fin').value);
+    const ini  = parseInt(document.getElementById('numero_inicio').value);
+    const fin  = parseInt(document.getElementById('numero_fin').value);
     const prev = document.getElementById('cantidad_preview');
     prev.value = (!isNaN(ini) && !isNaN(fin) && fin >= ini)
         ? (fin - ini + 1).toLocaleString() : '';
@@ -187,12 +205,9 @@ function calcCantidad() {
 document.getElementById('numero_inicio').addEventListener('input', calcCantidad);
 document.getElementById('numero_fin').addEventListener('input', calcCantidad);
 
-// Auto-restaurar estado tras validación fallida (old())
 document.addEventListener('DOMContentLoaded', function () {
     const tipoId = document.getElementById('tipo_especie_id').value;
-    if (tipoId) {
-        cargarLotes({{ old('lote_id') ?? 'null' }});
-    }
+    if (tipoId) cargarLotes({{ old('lote_id') ?? 'null' }});
     calcCantidad();
 });
 </script>

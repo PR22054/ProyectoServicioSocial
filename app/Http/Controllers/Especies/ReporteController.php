@@ -137,16 +137,22 @@ class ReporteController extends Controller
             ->with(['lote.compra'])
             ->orderBy('lote_id')->orderBy('numero_inicio')->get();
 
-        // Cuanto fue trasladado de cada lote hasta fecha_hasta
-        $trasladado = TrasladoDetalle::whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipo->id))
-            ->whereHas('traslado', fn($q) => $q->where('fecha', '<=', $hasta))
+        // Enviado desde bodega (solo bodega_distrito reduce el stock de bodega)
+        $enviado = TrasladoDetalle::whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipo->id))
+            ->whereHas('traslado', fn($q) => $q->where('tipo', 'bodega_distrito')->where('fecha', '<=', $hasta))
             ->selectRaw('lote_id, SUM(cantidad) as total')
             ->groupBy('lote_id')->pluck('total', 'lote_id');
 
-        $lotes = $rangos->groupBy('lote_id')->map(function ($rs) use ($trasladado) {
+        // Devuelto a bodega (distrito_bodega aumenta el stock de bodega)
+        $devuelto = TrasladoDetalle::whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipo->id))
+            ->whereHas('traslado', fn($q) => $q->where('tipo', 'distrito_bodega')->where('fecha', '<=', $hasta))
+            ->selectRaw('lote_id, SUM(cantidad) as total')
+            ->groupBy('lote_id')->pluck('total', 'lote_id');
+
+        $lotes = $rangos->groupBy('lote_id')->map(function ($rs) use ($enviado, $devuelto) {
             $lote        = $rs->first()->lote;
             $totalRangos = $rs->sum(fn($r) => $r->numero_fin - $r->numero_inicio + 1);
-            $disponible  = max(0, $totalRangos - $trasladado->get($lote->id, 0));
+            $disponible  = max(0, $totalRangos - $enviado->get($lote->id, 0) + $devuelto->get($lote->id, 0));
             return compact('lote', 'disponible') + ['rangos' => $rs, 'total' => $totalRangos];
         })->filter(fn($l) => $l['disponible'] > 0);
 
@@ -313,10 +319,22 @@ class ReporteController extends Controller
         $tipos     = TipoEspecie::where('activo', true)->orderBy('nombre')->get();
 
         // Cargar todos los datos en bulk para eficiencia
+        // Solo traslados entrantes a distritos (bodega_distrito y distrito_distrito como destino)
         $allDetalles = TrasladoDetalle::join('traslados', 'traslado_detalles.traslado_id', '=', 'traslados.id')
             ->join('lotes', 'traslado_detalles.lote_id', '=', 'lotes.id')
             ->where('traslados.fecha', '<=', $finMes)
+            ->whereNotNull('traslados.distrito_id')
             ->select('traslados.distrito_id', 'lotes.tipo_especie_id',
+                     'traslados.fecha', 'traslado_detalles.cantidad')
+            ->get();
+
+        // Salidas desde distritos (devoluciones y traslados inter-distrito como origen)
+        $allSalidas = TrasladoDetalle::join('traslados', 'traslado_detalles.traslado_id', '=', 'traslados.id')
+            ->join('lotes', 'traslado_detalles.lote_id', '=', 'lotes.id')
+            ->where('traslados.fecha', '<=', $finMes)
+            ->whereIn('traslados.tipo', ['distrito_bodega', 'distrito_distrito'])
+            ->whereNotNull('traslados.origen_distrito_id')
+            ->select('traslados.origen_distrito_id as distrito_id', 'lotes.tipo_especie_id',
                      'traslados.fecha', 'traslado_detalles.cantidad')
             ->get();
 
@@ -339,14 +357,20 @@ class ReporteController extends Controller
 
                 $recAntes  = $allDetalles->where('distrito_id', $distrito->id)
                     ->where('tipo_especie_id', $tipo->id)->where('fecha', '<', $inicioMes)->sum('cantidad');
+                $salAntes  = $allSalidas->where('distrito_id', $distrito->id)
+                    ->where('tipo_especie_id', $tipo->id)->where('fecha', '<', $inicioMes)->sum('cantidad');
                 $realAntes = $allReal->where('distrito_id', $distrito->id)
                     ->where('tipo_especie_id', $tipo->id)->where('fecha', '<', $inicioMes)->sum('cantidad');
                 $nulaAntes = $allNulas->where('distrito_id', $distrito->id)
                     ->where('tipo_especie_id', $tipo->id)->where('fecha', '<', $inicioMes)->sum('cantidad');
 
-                $saldoInicio = $recAntes - $realAntes - $nulaAntes;
+                $saldoInicio = $recAntes - $salAntes - $realAntes - $nulaAntes;
 
                 $recMes  = $allDetalles->where('distrito_id', $distrito->id)
+                    ->where('tipo_especie_id', $tipo->id)
+                    ->whereBetween('fecha', [$inicioMes->toDateString(), $finMes->toDateString()])
+                    ->sum('cantidad');
+                $salMes  = $allSalidas->where('distrito_id', $distrito->id)
                     ->where('tipo_especie_id', $tipo->id)
                     ->whereBetween('fecha', [$inicioMes->toDateString(), $finMes->toDateString()])
                     ->sum('cantidad');
@@ -363,14 +387,15 @@ class ReporteController extends Controller
                     ->whereBetween('fecha', [$inicioMes->toDateString(), $finMes->toDateString()])
                     ->sum('cantidad');
 
-                $saldoFinal = $saldoInicio + $recMes - $realMes - $nulaMes;
+                $saldoFinal = $saldoInicio + $recMes - $salMes - $realMes - $nulaMes;
 
-                if ($saldoInicio > 0 || $recMes > 0 || $realMes > 0 || $nulaMes > 0) {
+                if ($saldoInicio > 0 || $recMes > 0 || $salMes > 0 || $realMes > 0 || $nulaMes > 0) {
                     $tabla[] = [
                         'distrito'      => $distrito,
                         'tipo'          => $tipo,
                         'saldo_inicio'  => $saldoInicio,
                         'recibido'      => $recMes,
+                        'salido'        => $salMes,
                         'realizado'     => $realMes,
                         'nulado'        => $nulaMes,
                         'saldo_final'   => $saldoFinal,

@@ -47,7 +47,7 @@
             <div class="row">
                 <div class="col-md-3 ml-auto">
                     <button type="submit" class="btn btn-primary btn-block">
-                        Generar reporte
+                        <i class="fas fa-file-pdf mr-1"></i> Generar reporte
                     </button>
                 </div>
             </div>

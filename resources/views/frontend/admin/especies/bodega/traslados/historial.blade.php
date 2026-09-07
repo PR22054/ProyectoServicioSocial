@@ -16,10 +16,10 @@
         </div>
     @endif
 
-    {{-- LISTADO DE TRASLADOS CON OPCIONES DE VER, EDITAR Y ELIMINAR --}}
+    {{-- LISTADO DE TRASLADOS: BODEGA→DISTRITO, DEVOLUCION Y ENTRE DISTRITOS --}}
     <div class="mb-3">
         <a href="{{ route('admin.especies.bodega.traslado.crear') }}" class="btn btn-primary">
-            Registrar traslado
+            <i class="fas fa-plus mr-1"></i> Registrar traslado
         </a>
     </div>
 
@@ -31,10 +31,12 @@
                     <tr>
                         <th style="width:5%">#</th>
                         <th>Fecha</th>
-                        <th>Distrito destino</th>
+                        <th>Tipo</th>
+                        <th>Origen</th>
+                        <th>Destino</th>
                         <th>Registrado por</th>
                         <th class="text-center">Detalles</th>
-                        <th class="text-right">Total especies</th>
+                        <th class="text-right">Total</th>
                         <th class="text-center" style="width:12%">Acciones</th>
                     </tr>
                 </thead>
@@ -43,7 +45,29 @@
                     <tr>
                         <td>{{ $loop->iteration }}</td>
                         <td>{{ $traslado->fecha->format('d/m/Y') }}</td>
-                        <td>{{ $traslado->distrito->nombre ?? '—' }}</td>
+                        <td>
+                            @if($traslado->tipo === 'bodega_distrito')
+                                <span class="badge badge-success">Bodega → Distrito</span>
+                            @elseif($traslado->tipo === 'distrito_bodega')
+                                <span class="badge badge-warning">Devolución</span>
+                            @else
+                                <span class="badge badge-info">Entre Distritos</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if($traslado->tipo === 'bodega_distrito')
+                                <em class="text-muted">Bodega</em>
+                            @else
+                                {{ $traslado->origenDistrito->nombre ?? '—' }}
+                            @endif
+                        </td>
+                        <td>
+                            @if($traslado->tipo === 'distrito_bodega')
+                                <em class="text-muted">Bodega</em>
+                            @else
+                                {{ $traslado->distrito->nombre ?? '—' }}
+                            @endif
+                        </td>
                         <td>{{ $traslado->usuario->usuario ?? '—' }}</td>
                         <td class="text-center">
                             <span class="badge badge-info">{{ $traslado->detalles_count }}</span>
@@ -55,9 +79,9 @@
                                 <i class="fas fa-eye"></i>
                             </a>
                             <button type="button" class="btn btn-xs btn-warning"
-                                    onclick="abrirEditTraslado(
-                                        {{ $traslado->id }},
-                                        {{ $traslado->distrito_id }},
+                                    onclick="abrirEditTraslado({{ $traslado->id }}, '{{ $traslado->tipo }}',
+                                        {{ $traslado->distrito_id ?? 'null' }},
+                                        {{ $traslado->origen_distrito_id ?? 'null' }},
                                         '{{ $traslado->fecha->format('Y-m-d') }}',
                                         '{{ addslashes($traslado->observaciones ?? '') }}'
                                     )">
@@ -71,13 +95,13 @@
                             <button type="button" class="btn btn-xs btn-danger"
                                     data-swal-delete
                                     data-form="del-traslado-{{ $traslado->id }}"
-                                    data-msg="¿Eliminar el traslado #{{ $traslado->id }} ({{ $traslado->distrito->nombre ?? '' }})? Se eliminarán también sus detalles.">
+                                    data-msg="¿Eliminar el traslado #{{ $traslado->id }}? Se eliminarán también sus detalles.">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="7" class="text-center text-muted py-3">Sin traslados registrados</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted py-3">Sin traslados registrados</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -97,27 +121,33 @@
                     <div class="modal-body">
                         @if($errors->any())
                             <div class="alert alert-danger py-2">
-                                <ul class="mb-0">
-                                    @foreach($errors->all() as $e)
-                                        <li>{{ $e }}</li>
-                                    @endforeach
-                                </ul>
+                                <ul class="mb-0">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
                             </div>
                         @endif
-                        <div class="form-group">
-                            <label>Distrito destino <span class="text-danger">*</span></label>
-                            <select name="distrito_id" id="edit_distrito_id" class="form-control" required>
+
+                        <div id="edit_campo_origen" class="form-group" style="display:none">
+                            <label>Distrito origen <span class="text-danger">*</span></label>
+                            <select name="origen_distrito_id" id="edit_origen_distrito_id" class="form-control">
                                 @foreach($distritos as $d)
-                                    <option value="{{ $d->id }}">
-                                        {{ $d->nombre }}{{ $d->codigo ? ' (' . $d->codigo . ')' : '' }}
-                                    </option>
+                                    <option value="{{ $d->id }}">{{ $d->nombre }}{{ $d->codigo ? ' (' . $d->codigo . ')' : '' }}</option>
                                 @endforeach
                             </select>
                         </div>
+
+                        <div id="edit_campo_destino" class="form-group">
+                            <label>Distrito destino <span class="text-danger">*</span></label>
+                            <select name="distrito_id" id="edit_distrito_id" class="form-control">
+                                @foreach($distritos as $d)
+                                    <option value="{{ $d->id }}">{{ $d->nombre }}{{ $d->codigo ? ' (' . $d->codigo . ')' : '' }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
                         <div class="form-group">
                             <label>Fecha <span class="text-danger">*</span></label>
                             <input type="date" name="fecha" id="edit_fecha" class="form-control" required>
                         </div>
+
                         <div class="form-group">
                             <label>Observaciones <small class="text-muted">(opcional)</small></label>
                             <textarea name="observaciones" id="edit_observaciones" class="form-control" rows="2" maxlength="500"></textarea>
@@ -136,8 +166,15 @@
 
 @push('js')
 <script>
-function abrirEditTraslado(id, distritoId, fecha, observaciones) {
-    document.getElementById('edit_distrito_id').value   = distritoId;
+function abrirEditTraslado(id, tipo, distritoId, origenId, fecha, observaciones) {
+    const campoOrigen  = document.getElementById('edit_campo_origen');
+    const campoDestino = document.getElementById('edit_campo_destino');
+
+    campoOrigen.style.display  = (tipo === 'distrito_bodega' || tipo === 'distrito_distrito') ? '' : 'none';
+    campoDestino.style.display = (tipo === 'bodega_distrito' || tipo === 'distrito_distrito') ? '' : 'none';
+
+    if (distritoId)  document.getElementById('edit_distrito_id').value        = distritoId;
+    if (origenId)    document.getElementById('edit_origen_distrito_id').value = origenId;
     document.getElementById('edit_fecha').value         = fecha;
     document.getElementById('edit_observaciones').value = observaciones;
     document.getElementById('formEditTraslado').action  =

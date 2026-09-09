@@ -108,6 +108,8 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
         Route::get('realizaciones',                 [EspecieRealizacionController::class, 'historial'])->name('realizaciones.historial');
         Route::get('realizaciones/crear',           [EspecieRealizacionController::class, 'crear'])->name('realizaciones.crear');
         Route::post('realizaciones',                [EspecieRealizacionController::class, 'store'])->name('realizaciones.store');
+        Route::get('realizaciones/{realizacion}/editar', [EspecieRealizacionController::class, 'editar'])->name('realizaciones.editar');
+        Route::patch('realizaciones/{realizacion}', [EspecieRealizacionController::class, 'update'])->name('realizaciones.update');
         Route::delete('realizaciones/{realizacion}',[EspecieRealizacionController::class, 'destroy'])->name('realizaciones.destroy');
         Route::get('ajax/realizacion-info',         [EspecieRealizacionController::class, 'ajaxInfoDistritoTipo'])->name('ajax.realizacion-info');
 

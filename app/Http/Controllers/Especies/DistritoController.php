@@ -199,24 +199,37 @@ class DistritoController extends Controller
         $distritos  = Distrito::where('activo', true)->orderBy('codigo')->get();
         $distFiltro = $request->distrito_id;
 
-        // Todos los traslado_detalles del distrito (o todos si no hay filtro)
+        // Solo traslados entrantes a un distrito (las devoluciones a bodega no tienen distrito destino)
         $detalles = TrasladoDetalle::with(
                 'traslado.distrito',
                 'lote.tipoEspecie',
                 'lote.denominacion',
                 'lote.compra'
             )
-            ->when($distFiltro,
-                fn($q) => $q->whereHas('traslado', fn($q2) => $q2->where('distrito_id', $distFiltro)),
-                fn($q) => $q->whereHas('traslado') // trae todos
-            )
-            ->get()
-            ->map(function ($d) {
+            ->whereHas('traslado', fn($q) => $q->whereNotNull('distrito_id')
+                ->when($distFiltro, fn($q2) => $q2->where('distrito_id', $distFiltro)))
+            ->get();
+
+        // Realizaciones de los distritos mostrados, para descontarlas por solapamiento de rango
+        $realizaciones = Realizacion::whereIn('distrito_id',
+                $detalles->pluck('traslado.distrito_id')->unique()->filter()->values())
+            ->get(['distrito_id', 'tipo_especie_id', 'numero_inicio', 'numero_fin']);
+
+        $detalles = $detalles
+            ->map(function ($d) use ($realizaciones) {
                 $yaAnulado  = Nula::where('traslado_detalle_id', $d->id)
                                 ->selectRaw('SUM(numero_fin - numero_inicio + 1) as total')
                                 ->value('total') ?? 0;
+
+                $realizado = $realizaciones
+                    ->where('distrito_id', $d->traslado->distrito_id)
+                    ->where('tipo_especie_id', $d->lote->tipo_especie_id)
+                    ->sum(fn($r) => max(0,
+                        min($d->numero_fin, $r->numero_fin) - max($d->numero_inicio, $r->numero_inicio) + 1));
+
                 $d->anulado    = $yaAnulado;
-                $d->disponible = $d->cantidad - $yaAnulado;
+                $d->realizado  = $realizado;
+                $d->disponible = max(0, $d->cantidad - $yaAnulado - $realizado);
                 return $d;
             })
             ->sortBy([

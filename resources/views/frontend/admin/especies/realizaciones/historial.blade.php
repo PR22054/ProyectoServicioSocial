@@ -58,7 +58,7 @@
                         <th class="text-right">Monto cobrado</th>
                         <th>Contribuyente</th>
                         <th>Registrado por</th>
-                        <th class="text-center" style="width:7%">Acción</th>
+                        <th class="text-center" style="width:9%">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -81,6 +81,10 @@
                         <td>{{ $r->nombre_contribuyente ?? '—' }}</td>
                         <td>{{ $r->usuario->usuario ?? '—' }}</td>
                         <td class="text-center">
+                            <a href="{{ route('admin.especies.realizaciones.editar', $r) }}"
+                               class="btn btn-xs btn-warning">
+                                <i class="fas fa-edit"></i>
+                            </a>
                             <form method="POST"
                                   action="{{ route('admin.especies.realizaciones.destroy', $r) }}"
                                   id="del-real-{{ $r->id }}" style="display:inline">

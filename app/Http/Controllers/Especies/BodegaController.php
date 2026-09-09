@@ -204,14 +204,15 @@ class BodegaController extends Controller
             ->exists();
 
         if ($overlap) {
-            // Permitir si el rango fue devuelto completamente a bodega
-            $devuelto = TrasladoDetalle::where('lote_id', $lote->id)
+            // Permitir si el rango fue devuelto a bodega, aunque haya sido en varias devoluciones parciales
+            $devueltos = TrasladoDetalle::where('lote_id', $lote->id)
                 ->whereHas('traslado', fn($q) => $q->where('tipo', 'distrito_bodega'))
-                ->where('numero_inicio', '<=', $inicio)
-                ->where('numero_fin', '>=', $fin)
-                ->exists();
+                ->where('numero_inicio', '<=', $fin)
+                ->where('numero_fin', '>=', $inicio)
+                ->orderBy('numero_inicio')
+                ->get(['numero_inicio', 'numero_fin']);
 
-            if (!$devuelto) {
+            if (!$this->rangoCubiertoPor($devueltos, $inicio, $fin)) {
                 return back()
                     ->withErrors(['numero_inicio' => 'Ese rango (o parte de él) ya fue transferido a un distrito.'])
                     ->withInput();
@@ -247,17 +248,18 @@ class BodegaController extends Controller
     {
         $origenId = $traslado->origen_distrito_id;
 
-        // El rango debe haber sido recibido en el distrito origen
-        $fueRecibido = TrasladoDetalle::where('lote_id', $lote->id)
+        // El rango debe haber sido recibido en el distrito origen (puede venir de varios traslados parciales)
+        $recibidos = TrasladoDetalle::where('lote_id', $lote->id)
             ->whereHas('traslado', fn($q) =>
                 $q->whereIn('tipo', ['bodega_distrito', 'distrito_distrito'])
                   ->where('distrito_id', $origenId)
             )
-            ->where('numero_inicio', '<=', $inicio)
-            ->where('numero_fin', '>=', $fin)
-            ->exists();
+            ->where('numero_inicio', '<=', $fin)
+            ->where('numero_fin', '>=', $inicio)
+            ->orderBy('numero_inicio')
+            ->get(['numero_inicio', 'numero_fin']);
 
-        if (!$fueRecibido) {
+        if (!$this->rangoCubiertoPor($recibidos, $inicio, $fin)) {
             return back()
                 ->withErrors(['numero_inicio' => 'El rango no fue trasladado a este distrito o no está disponible.'])
                 ->withInput();
@@ -302,6 +304,21 @@ class BodegaController extends Controller
 
         return redirect()->route('admin.especies.bodega.traslado.show', $traslado)
             ->with('success_detalle', 'Detalle agregado correctamente.');
+    }
+
+    /**
+     * Verifica si [$inicio, $fin] queda cubierto por la union de los rangos dados,
+     * permitiendo que varios detalles parciales sumen la cobertura completa.
+     */
+    private function rangoCubiertoPor($detalles, int $inicio, int $fin): bool
+    {
+        $cubierto = $inicio;
+        foreach ($detalles as $d) {
+            if ($d->numero_inicio > $cubierto) break;
+            $cubierto = max($cubierto, $d->numero_fin + 1);
+            if ($cubierto > $fin) return true;
+        }
+        return $cubierto > $fin;
     }
 
     public function trasladoDetalleDestroy(Traslado $traslado, TrasladoDetalle $detalle)

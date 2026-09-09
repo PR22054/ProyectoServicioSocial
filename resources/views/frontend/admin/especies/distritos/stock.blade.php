@@ -40,6 +40,7 @@
                         <th class="text-center">Rango recibido</th>
                         <th class="text-right">Recibido</th>
                         <th class="text-right">Anulado</th>
+                        <th class="text-right">Realizado</th>
                         <th class="text-right">Disponible</th>
                     </tr>
                 </thead>
@@ -65,6 +66,13 @@
                             @endif
                         </td>
                         <td class="text-right">
+                            @if($d->realizado > 0)
+                                <span class="text-primary">{{ number_format($d->realizado) }}</span>
+                            @else
+                                0
+                            @endif
+                        </td>
+                        <td class="text-right">
                             @if($d->disponible > 0)
                                 <span class="badge badge-success" style="font-size:.85rem">
                                     {{ number_format($d->disponible) }}
@@ -76,7 +84,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-3">Sin datos de stock en distritos</td>
+                        <td colspan="10" class="text-center text-muted py-3">Sin datos de stock en distritos</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -86,6 +94,7 @@
                         <td colspan="6" class="text-right">Totales:</td>
                         <td class="text-right">{{ number_format($detalles->sum('cantidad')) }}</td>
                         <td class="text-right">{{ number_format($detalles->sum('anulado')) }}</td>
+                        <td class="text-right">{{ number_format($detalles->sum('realizado')) }}</td>
                         <td class="text-right">{{ number_format($detalles->sum('disponible')) }}</td>
                     </tr>
                 </tfoot>

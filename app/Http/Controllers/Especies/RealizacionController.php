@@ -81,38 +81,8 @@ class RealizacionController extends Controller
                 ->withInput();
         }
 
-        // El rango debe estar cubierto por traslados recibidos en el distrito
-        if (!$this->rangoCubierto($distId, $tipoId, $inicio, $fin)) {
-            return back()
-                ->withErrors(['numero_inicio' => 'El rango no está dentro de los documentos trasladados a este distrito.'])
-                ->withInput();
-        }
-
-        // Sin solapamiento con realizaciones ya registradas (globalmente por tipo)
-        $overlapReal = Realizacion::where('tipo_especie_id', $tipoId)
-            ->where('numero_inicio', '<=', $fin)
-            ->where('numero_fin',    '>=', $inicio)
-            ->exists();
-
-        if ($overlapReal) {
-            return back()
-                ->withErrors(['numero_inicio' => 'Parte o la totalidad del rango ya fue realizada anteriormente.'])
-                ->withInput();
-        }
-
-        // Sin solapamiento con nulas del mismo distrito + tipo
-        $overlapNula = Nula::whereHas('trasladoDetalle', function ($q) use ($distId, $tipoId) {
-                $q->whereHas('traslado', fn($q2) => $q2->where('distrito_id', $distId))
-                  ->whereHas('lote',     fn($q2) => $q2->where('tipo_especie_id', $tipoId));
-            })
-            ->where('numero_inicio', '<=', $fin)
-            ->where('numero_fin',    '>=', $inicio)
-            ->exists();
-
-        if ($overlapNula) {
-            return back()
-                ->withErrors(['numero_inicio' => 'Parte o la totalidad del rango está anulada y no puede realizarse.'])
-                ->withInput();
+        if ($error = $this->validarRango($distId, $tipoId, $inicio, $fin)) {
+            return back()->withErrors($error)->withInput();
         }
 
         Realizacion::create([
@@ -132,12 +102,116 @@ class RealizacionController extends Controller
             ->with('success', "Realización registrada: {$cantidad} documentos por $" . number_format($cantidad * $denom->valor, 2) . '.');
     }
 
+    public function editar(Realizacion $realizacion)
+    {
+        $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
+        $tipos     = TipoEspecie::where('activo', true)->orderBy('nombre')->get();
+
+        return view('frontend.admin.especies.realizaciones.editar',
+            compact('realizacion', 'distritos', 'tipos'));
+    }
+
+    public function update(Request $request, Realizacion $realizacion)
+    {
+        $request->validate([
+            'distrito_id'          => 'required|exists:distritos,id',
+            'tipo_especie_id'      => 'required|exists:tipo_especies,id',
+            'denominacion_id'      => 'required|exists:denominaciones,id',
+            'numero_inicio'        => 'required|integer|min:1',
+            'numero_fin'           => 'required|integer|min:1',
+            'fecha'                => 'required|date',
+            'nombre_contribuyente' => 'nullable|string|max:200',
+        ], [
+            'distrito_id.required'     => 'Seleccione un distrito.',
+            'tipo_especie_id.required' => 'Seleccione un tipo de especie.',
+            'denominacion_id.required' => 'Seleccione una denominación.',
+            'numero_inicio.required'   => 'El número de inicio es obligatorio.',
+            'numero_fin.required'      => 'El número de fin es obligatorio.',
+            'fecha.required'           => 'La fecha es obligatoria.',
+        ]);
+
+        $inicio = (int) $request->numero_inicio;
+        $fin    = (int) $request->numero_fin;
+
+        if ($inicio > $fin) {
+            return back()
+                ->withErrors(['numero_fin' => 'El número fin debe ser mayor al inicio.'])
+                ->withInput();
+        }
+
+        $cantidad = $fin - $inicio + 1;
+        $tipoId   = $request->tipo_especie_id;
+        $distId   = $request->distrito_id;
+
+        $denom = Denominacion::findOrFail($request->denominacion_id);
+        if ($denom->tipo_especie_id != $tipoId) {
+            return back()
+                ->withErrors(['denominacion_id' => 'La denominación no pertenece al tipo seleccionado.'])
+                ->withInput();
+        }
+
+        // Se ignora la propia realizacion al validar solapamientos
+        if ($error = $this->validarRango($distId, $tipoId, $inicio, $fin, $realizacion->id)) {
+            return back()->withErrors($error)->withInput();
+        }
+
+        $realizacion->update([
+            'tipo_especie_id'      => $tipoId,
+            'denominacion_id'      => $denom->id,
+            'distrito_id'          => $distId,
+            'numero_inicio'        => $inicio,
+            'numero_fin'           => $fin,
+            'cantidad'             => $cantidad,
+            'fecha'                => $request->fecha,
+            'nombre_contribuyente' => $request->nombre_contribuyente,
+            'monto_cobrado'        => $cantidad * $denom->valor,
+        ]);
+
+        return redirect()->route('admin.especies.realizaciones.historial')
+            ->with('success', 'Realización actualizada correctamente.');
+    }
+
     public function destroy(Realizacion $realizacion)
     {
         $realizacion->delete();
 
         return redirect()->route('admin.especies.realizaciones.historial')
             ->with('success', 'Realización eliminada correctamente.');
+    }
+
+    /**
+     * Valida que el rango sea realizable en el distrito. Devuelve el error o null.
+     * $ignorarId excluye una realizacion del chequeo de solapamiento (para edicion).
+     */
+    private function validarRango(int $distId, int $tipoId, int $inicio, int $fin, ?int $ignorarId = null): ?array
+    {
+        if (!$this->rangoCubierto($distId, $tipoId, $inicio, $fin)) {
+            return ['numero_inicio' => 'El rango no está dentro de los documentos trasladados a este distrito.'];
+        }
+
+        $overlapReal = Realizacion::where('tipo_especie_id', $tipoId)
+            ->when($ignorarId, fn($q) => $q->where('id', '!=', $ignorarId))
+            ->where('numero_inicio', '<=', $fin)
+            ->where('numero_fin',    '>=', $inicio)
+            ->exists();
+
+        if ($overlapReal) {
+            return ['numero_inicio' => 'Parte o la totalidad del rango ya fue realizada anteriormente.'];
+        }
+
+        $overlapNula = Nula::whereHas('trasladoDetalle', function ($q) use ($distId, $tipoId) {
+                $q->whereHas('traslado', fn($q2) => $q2->where('distrito_id', $distId))
+                  ->whereHas('lote',     fn($q2) => $q2->where('tipo_especie_id', $tipoId));
+            })
+            ->where('numero_inicio', '<=', $fin)
+            ->where('numero_fin',    '>=', $inicio)
+            ->exists();
+
+        if ($overlapNula) {
+            return ['numero_inicio' => 'Parte o la totalidad del rango está anulada y no puede realizarse.'];
+        }
+
+        return null;
     }
 
     // AJAX: stock disponible + denominaciones para distrito + tipo

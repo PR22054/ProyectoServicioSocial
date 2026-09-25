@@ -1,5 +1,5 @@
-{{-- PDF: EXISTENCIAS EN BODEGA - TABLA DE LOTES CON STOCK DISPONIBLE AL CORTE --}}
-@php $tituloReporte = 'Existencias en Bodega'; @endphp
+{{-- PDF: EXISTENCIAS EN BODEGA - lotes con stock disponible, valuados a precio de venta --}}
+@php $tituloReporte = 'Libro de Existencias en Bodega'; @endphp
 @include('frontend.admin.especies.reportes.pdf._header')
 
 <p class="label">
@@ -14,13 +14,15 @@
 <table class="datos">
   <thead>
     <tr>
-      <th>#</th>
-      <th>Factura</th>
-      <th>Serie</th>
-      <th class="center">Rangos</th>
-      <th class="right">Total en lote</th>
-      <th class="right">Trasladado</th>
-      <th class="right">Disponible</th>
+      <th class="center" style="width:4%">#</th>
+      <th style="width:12%">FACTURA</th>
+      <th class="center" style="width:7%">SERIE</th>
+      <th style="width:19%">DEL / AL</th>
+      <th class="right" style="width:9%">VALOR</th>
+      <th class="right" style="width:8%">CANT.</th>
+      <th class="right" style="width:8%">TRASL.</th>
+      <th class="right" style="width:9%">EXIST.</th>
+      <th class="right" style="width:12%">SALDO</th>
     </tr>
   </thead>
   <tbody>
@@ -31,24 +33,34 @@
       <td class="center">{{ $row['lote']->serie ?: '—' }}</td>
       <td>
         @foreach($row['rangos'] as $r)
-          {{ number_format($r->numero_inicio) }} – {{ number_format($r->numero_fin) }}<br>
+          {{ number_format($r->numero_inicio) }} / {{ number_format($r->numero_fin) }}<br>
         @endforeach
       </td>
+      <td class="right">{{ number_format($row['valor'], 2) }}</td>
       <td class="right">{{ number_format($row['total']) }}</td>
       <td class="right">{{ number_format($row['total'] - $row['disponible']) }}</td>
       <td class="right"><strong>{{ number_format($row['disponible']) }}</strong></td>
+      <td class="right"><strong>{{ number_format($row['monto_disponible'], 2) }}</strong></td>
     </tr>
     @endforeach
   </tbody>
   <tfoot>
     <tr>
-      <td colspan="4" class="right">TOTAL EN BODEGA:</td>
+      <td colspan="5" class="right">TOTAL EN BODEGA:</td>
       <td class="right">{{ number_format($lotes->sum('total')) }}</td>
       <td class="right">{{ number_format($lotes->sum(fn($l) => $l['total'] - $l['disponible'])) }}</td>
       <td class="right">{{ number_format($lotes->sum('disponible')) }}</td>
+      <td class="right">{{ number_format($lotes->sum('monto_disponible'), 2) }}</td>
     </tr>
   </tfoot>
 </table>
+
+<br>
+<p class="sub">
+  <strong>SALDO</strong> = existencia &times; valor unitario de la denominación.
+  Comprado en el período: {{ number_format($lotes->sum('total')) }} documentos
+  por ${{ number_format($lotes->sum('monto_total'), 2) }}.
+</p>
 @endif
 
 <br>

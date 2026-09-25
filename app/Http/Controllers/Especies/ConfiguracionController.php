@@ -74,22 +74,39 @@ class ConfiguracionController extends Controller
         return view('frontend.admin.especies.configuracion.denominaciones', compact('denominaciones', 'tipos'));
     }
 
-    public function storeDenominacion(Request $request)
+    private function reglasDenominacion(): array
     {
-        $request->validate([
+        return [
             'tipo_especie_id' => 'required|exists:tipo_especies,id',
-            'valor'           => 'required|numeric|min:0.01',
-        ], [
+            'descripcion'     => 'nullable|string|max:150',
+            'valor'           => 'required|numeric|min:0',
+            'precio_costo'    => 'nullable|numeric|min:0',
+        ];
+    }
+
+    private function mensajesDenominacion(): array
+    {
+        return [
             'tipo_especie_id.required' => 'Seleccione un tipo de especie.',
             'tipo_especie_id.exists'   => 'El tipo seleccionado no existe.',
-            'valor.required'           => 'El valor es obligatorio.',
-            'valor.numeric'            => 'El valor debe ser numérico.',
-            'valor.min'                => 'El valor debe ser mayor a cero.',
-        ]);
+            'valor.required'           => 'El precio de venta es obligatorio.',
+            'valor.numeric'            => 'El precio de venta debe ser numérico.',
+            'valor.min'                => 'El precio de venta no puede ser negativo.',
+            'precio_costo.numeric'     => 'El precio de costo debe ser numérico.',
+            'precio_costo.min'         => 'El precio de costo no puede ser negativo.',
+            'descripcion.max'          => 'La descripción no puede superar los 150 caracteres.',
+        ];
+    }
+
+    public function storeDenominacion(Request $request)
+    {
+        $request->validate($this->reglasDenominacion(), $this->mensajesDenominacion());
 
         Denominacion::create([
             'tipo_especie_id' => $request->tipo_especie_id,
+            'descripcion'     => $request->descripcion,
             'valor'           => $request->valor,
+            'precio_costo'    => $request->precio_costo,
             'activo'          => $request->boolean('activo'),
         ]);
 
@@ -98,20 +115,13 @@ class ConfiguracionController extends Controller
 
     public function updateDenominacion(Request $request, Denominacion $denominacion)
     {
-        $request->validate([
-            'tipo_especie_id' => 'required|exists:tipo_especies,id',
-            'valor'           => 'required|numeric|min:0.01',
-        ], [
-            'tipo_especie_id.required' => 'Seleccione un tipo de especie.',
-            'tipo_especie_id.exists'   => 'El tipo seleccionado no existe.',
-            'valor.required'           => 'El valor es obligatorio.',
-            'valor.numeric'            => 'El valor debe ser numérico.',
-            'valor.min'                => 'El valor debe ser mayor a cero.',
-        ]);
+        $request->validate($this->reglasDenominacion(), $this->mensajesDenominacion());
 
         $denominacion->update([
             'tipo_especie_id' => $request->tipo_especie_id,
+            'descripcion'     => $request->descripcion,
             'valor'           => $request->valor,
+            'precio_costo'    => $request->precio_costo,
             'activo'          => $request->boolean('activo'),
         ]);
 
@@ -123,7 +133,7 @@ class ConfiguracionController extends Controller
         $dens = Denominacion::where('tipo_especie_id', $request->tipo_especie_id)
             ->where('activo', true)
             ->orderBy('valor')
-            ->get(['id', 'valor']);
+            ->get(['id', 'descripcion', 'valor', 'precio_costo']);
         return response()->json($dens);
     }
 

@@ -1,5 +1,5 @@
-{{-- PDF: CONTROL DE SALDOS - REALIZACIONES POR TIPO Y DENOMINACION EN EL PERIODO --}}
-@php $tituloReporte = 'Control de Saldos'; @endphp
+{{-- PDF: ESPECIES MUNICIPALES REALIZADAS - por tipo y denominacion, con nulas y descargos a costo --}}
+@php $tituloReporte = 'Especies Municipales Realizadas'; @endphp
 @include('frontend.admin.especies.reportes.pdf._header')
 
 <p class="label">
@@ -9,49 +9,70 @@
 <br>
 
 @if($grupos->isEmpty())
-  <p class="center">Sin realizaciones registradas para los filtros seleccionados.</p>
+  <p class="center">Sin especies registradas para este distrito.</p>
 @else
 
-  @foreach($grupos as $grupo)
-  <p class="seccion">{{ strtoupper($grupo['tipo']->nombre) }}</p>
-  <table class="datos">
-    <thead>
+<table class="datos">
+  <thead>
+    <tr>
+      <th class="center" style="width:12%">CANTIDAD</th>
+      <th style="width:38%">DESCRIPCION</th>
+      <th class="right" style="width:14%">P.DE COSTO</th>
+      <th class="right" style="width:18%">PRECIO DE VTA.</th>
+      <th class="right" style="width:18%">DESCARGOS</th>
+    </tr>
+  </thead>
+  <tbody>
+    @foreach($grupos as $grupo)
+      {{-- encabezado del tipo de especie --}}
       <tr>
-        <th class="center" style="width:15%">Cantidad</th>
-        <th style="width:30%">Descripcion</th>
-        <th class="right" style="width:20%">Precio unitario</th>
-        <th class="right" style="width:35%">Monto cobrado</th>
+        <td colspan="5"><strong>{{ strtoupper($grupo['tipo']->nombre) }}</strong></td>
       </tr>
-    </thead>
-    <tbody>
-      @foreach($grupo['denoms'] as $i => $d)
-      <tr class="{{ $i % 2 == 1 ? 'alt' : '' }}">
-        <td class="center">{{ number_format($d['cantidad']) }}</td>
-        <td>$ {{ number_format($d['denominacion']->valor, 2) }}</td>
-        <td class="right">$ {{ number_format($d['denominacion']->valor, 2) }}</td>
-        <td class="right">$ {{ number_format($d['monto'], 2) }}</td>
+
+      @foreach($grupo['filas'] as $f)
+      <tr>
+        <td class="center">{{ number_format($f['cantidad']) }}</td>
+        <td>{{ $f['etiqueta'] }}</td>
+        <td class="right">
+          @if($f['costo'] !== null){{ rtrim(rtrim(number_format($f['costo'], 4), '0'), '.') }}@else—@endif
+        </td>
+        <td class="right">{{ number_format($f['precio_vta'], 2) }}</td>
+        <td class="right">{{ number_format($f['descargo'], 2) }}</td>
       </tr>
       @endforeach
-    </tbody>
-    <tfoot>
-      <tr>
-        <td class="center">{{ number_format($grupo['total_cantidad']) }}</td>
-        <td colspan="2" class="right">SUBTOTAL {{ strtoupper($grupo['tipo']->nombre) }}:</td>
-        <td class="right">$ {{ number_format($grupo['total_monto'], 2) }}</td>
-      </tr>
-    </tfoot>
-  </table>
-  @endforeach
 
-  <table class="datos" style="margin-top:12px;">
-    <tfoot>
+      {{-- subtotal del tipo: la venta solo suma lo realizado, el descargo tambien las nulas --}}
       <tr>
-        <td class="center"><strong>{{ number_format($totalCantidad) }}</strong></td>
-        <td colspan="2" class="right"><strong>TOTALES GENERALES:</strong></td>
-        <td class="right"><strong>$ {{ number_format($totalGeneral, 2) }}</strong></td>
+        <td class="center"><strong>{{ number_format($grupo['total_cantidad']) }}</strong></td>
+        <td colspan="2" class="right"><strong>TOTAL</strong></td>
+        <td class="right"><strong>{{ number_format($grupo['total_vta'], 2) }}</strong></td>
+        <td class="right"><strong>{{ number_format($grupo['total_descargo'], 2) }}</strong></td>
       </tr>
-    </tfoot>
-  </table>
+    @endforeach
+  </tbody>
+  <tfoot>
+    <tr>
+      <td class="center"><strong>{{ number_format($totalCantidad) }}</strong></td>
+      <td colspan="2" class="right"><strong>TOTALES GENERALES</strong></td>
+      <td class="right"><strong>{{ number_format($totalVtaGeneral, 2) }}</strong></td>
+      <td class="right"><strong>{{ number_format($totalDescargoGeneral, 2) }}</strong></td>
+    </tr>
+  </tfoot>
+</table>
+
+<br>
+<p class="sub">
+  <strong>PRECIO DE VTA.</strong> = cantidad realizada &times; precio de venta.
+  <strong>DESCARGOS</strong> = cantidad &times; precio de costo, e incluye las nulas.
+  Las nulas se muestran con su valor facial pero no suman al total de venta porque no se cobraron.
+</p>
+
+@if($faltaCosto)
+<p class="sub" style="margin-top:6px">
+  <strong>Aviso:</strong> hay denominaciones sin precio de costo capturado; sus descargos salen en cero.
+  Complételo en Configuración &gt; Denominaciones.
+</p>
+@endif
 
 @endif
 

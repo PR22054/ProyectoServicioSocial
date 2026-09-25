@@ -28,9 +28,9 @@
             @endif
             <form method="POST" action="{{ route('admin.especies.configuracion.denominaciones.store') }}">
                 @csrf
-                <div class="row align-items-end">
+                <div class="row">
                     <div class="col-md-4">
-                        <div class="form-group mb-0">
+                        <div class="form-group">
                             <label>Tipo de especie <span class="text-danger">*</span></label>
                             <select name="tipo_especie_id" class="form-control @error('tipo_especie_id') is-invalid @enderror">
                                 <option value="">— Seleccione —</option>
@@ -42,25 +42,49 @@
                             </select>
                         </div>
                     </div>
+                    <div class="col-md-8">
+                        <div class="form-group">
+                            <label>Descripción <small class="text-muted">(como aparece en los libros)</small></label>
+                            <input type="text" name="descripcion" maxlength="150"
+                                   class="form-control @error('descripcion') is-invalid @enderror"
+                                   value="{{ old('descripcion') }}"
+                                   placeholder="Ej: DE 30 COLONES $ 3.43 — FÓRMULAS CONTINUAS — JUEGO DE CARTULINA">
+                        </div>
+                    </div>
+                </div>
+                <div class="row align-items-end">
                     <div class="col-md-3">
                         <div class="form-group mb-0">
-                            <label>Valor ($) <span class="text-danger">*</span></label>
+                            <label>Precio de venta <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <div class="input-group-prepend"><span class="input-group-text">$</span></div>
                                 <input type="number" name="valor"
                                        class="form-control @error('valor') is-invalid @enderror"
-                                       value="{{ old('valor') }}" placeholder="0.00" step="0.01" min="0.01">
+                                       value="{{ old('valor') }}" placeholder="0.00" step="0.01" min="0">
                             </div>
+                            <small class="text-muted">Valor unitario, nunca el total del bloque.</small>
                         </div>
                     </div>
-                    <div class="col-md-2 d-flex align-items-center">
+                    <div class="col-md-3">
+                        <div class="form-group mb-0">
+                            <label>Precio de costo</label>
+                            <div class="input-group">
+                                <div class="input-group-prepend"><span class="input-group-text">$</span></div>
+                                <input type="number" name="precio_costo"
+                                       class="form-control @error('precio_costo') is-invalid @enderror"
+                                       value="{{ old('precio_costo') }}" placeholder="0.0000" step="0.0001" min="0">
+                            </div>
+                            <small class="text-muted">Costo unitario al M.H. (base de descargos).</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-center">
                         <div class="custom-control custom-switch mt-1">
                             <input type="checkbox" class="custom-control-input" id="activo_new" name="activo" value="1"
                                    {{ old('activo', '1') ? 'checked' : '' }}>
                             <label class="custom-control-label" for="activo_new">Activo</label>
                         </div>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <button type="submit" class="btn btn-primary btn-block">
                             Agregar
                         </button>
@@ -77,11 +101,13 @@
             <table class="table table-striped table-sm mb-0">
                 <thead>
                     <tr>
-                        <th style="width:5%">#</th>
+                        <th style="width:4%">#</th>
                         <th>Tipo de especie</th>
-                        <th class="text-right" style="width:15%">Valor</th>
-                        <th class="text-center" style="width:10%">Estado</th>
-                        <th class="text-center" style="width:12%">Acciones</th>
+                        <th>Descripción</th>
+                        <th class="text-right" style="width:12%">P. venta</th>
+                        <th class="text-right" style="width:12%">P. costo</th>
+                        <th class="text-center" style="width:9%">Estado</th>
+                        <th class="text-center" style="width:10%">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -89,7 +115,25 @@
                     <tr>
                         <td>{{ $den->id }}</td>
                         <td>{{ $den->tipoEspecie->nombre }}</td>
+                        <td>
+                            @if($den->descripcion)
+                                {{ $den->descripcion }}
+                            @else
+                                <span class="text-warning" title="Sin descripción: los reportes mostrarán solo el valor">
+                                    <i class="fas fa-exclamation-triangle"></i> sin descripción
+                                </span>
+                            @endif
+                        </td>
                         <td class="text-right font-weight-bold">${{ number_format($den->valor, 2) }}</td>
+                        <td class="text-right">
+                            @if($den->precio_costo !== null)
+                                ${{ number_format($den->precio_costo, 4) }}
+                            @else
+                                <span class="text-warning" title="Sin precio de costo: no se pueden calcular descargos">
+                                    <i class="fas fa-exclamation-triangle"></i> —
+                                </span>
+                            @endif
+                        </td>
                         <td class="text-center">
                             @if($den->activo)
                                 <span class="badge badge-success">Activo</span>
@@ -99,7 +143,7 @@
                         </td>
                         <td class="text-center">
                             <button class="btn btn-xs btn-warning"
-                                    onclick="abrirEditDen({{ $den->id }}, {{ $den->tipo_especie_id }}, {{ $den->valor }}, {{ $den->activo }})">
+                                    onclick="abrirEditDen({{ $den->id }}, {{ $den->tipo_especie_id }}, {{ Js::from($den->descripcion) }}, {{ $den->valor }}, {{ $den->precio_costo !== null ? $den->precio_costo : 'null' }}, {{ $den->activo }})">
                                 <i class="fas fa-edit"></i>
                             </button>
                             <form method="POST" action="{{ route('admin.especies.configuracion.denominaciones.destroy', $den) }}"
@@ -114,7 +158,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="5" class="text-center text-muted py-3">Sin denominaciones registradas</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-3">Sin denominaciones registradas</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -141,11 +185,32 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Valor ($) <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <div class="input-group-prepend"><span class="input-group-text">$</span></div>
-                                <input type="number" name="valor" id="edit_valor" class="form-control"
-                                       step="0.01" min="0.01" required>
+                            <label>Descripción <small class="text-muted">(como aparece en los libros)</small></label>
+                            <input type="text" name="descripcion" id="edit_descripcion" class="form-control" maxlength="150"
+                                   placeholder="Ej: DE 30 COLONES $ 3.43">
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label>Precio de venta <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend"><span class="input-group-text">$</span></div>
+                                        <input type="number" name="valor" id="edit_valor" class="form-control"
+                                               step="0.01" min="0" required>
+                                    </div>
+                                    <small class="text-muted">Unitario, no el total del bloque.</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label>Precio de costo</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend"><span class="input-group-text">$</span></div>
+                                        <input type="number" name="precio_costo" id="edit_precio_costo" class="form-control"
+                                               step="0.0001" min="0">
+                                    </div>
+                                    <small class="text-muted">Costo unitario al M.H.</small>
+                                </div>
                             </div>
                         </div>
                         <div class="custom-control custom-switch">
@@ -166,9 +231,11 @@
 
 @push('js')
 <script>
-function abrirEditDen(id, tipoId, valor, activo) {
-    document.getElementById('edit_tipo').value   = tipoId;
-    document.getElementById('edit_valor').value  = valor;
+function abrirEditDen(id, tipoId, descripcion, valor, precioCosto, activo) {
+    document.getElementById('edit_tipo').value        = tipoId;
+    document.getElementById('edit_descripcion').value = descripcion ?? '';
+    document.getElementById('edit_valor').value       = valor;
+    document.getElementById('edit_precio_costo').value = precioCosto ?? '';
     document.getElementById('edit_activo').checked = activo == 1;
     document.getElementById('formEditDen').action =
         '{{ url("admin/especies/configuracion/denominaciones") }}/' + id;

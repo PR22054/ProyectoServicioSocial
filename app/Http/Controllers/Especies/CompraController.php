@@ -8,7 +8,10 @@ use App\Models\Denominacion;
 use App\Models\Lote;
 use App\Models\LoteRango;
 use App\Models\TipoEspecie;
+use App\Services\Inventario;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class CompraController extends Controller
 {
@@ -17,7 +20,7 @@ class CompraController extends Controller
         $compras = Compra::withCount('lotes')
             ->orderByDesc('fecha')
             ->orderByDesc('id')
-            ->get();
+            ->paginate(25);
 
         return view('frontend.admin.especies.compras.historial', compact('compras'));
     }
@@ -31,12 +34,13 @@ class CompraController extends Controller
     {
         $request->validate([
             'numero_factura' => 'required|string|max:50|unique:compras,numero_factura',
-            'fecha'          => 'required|date',
+            'fecha'          => 'required|date|before_or_equal:today',
             'observaciones'  => 'nullable|string|max:500',
         ], [
             'numero_factura.required' => 'El número de factura es obligatorio.',
             'numero_factura.unique'   => 'Ya existe una compra con ese número de factura.',
             'fecha.required'          => 'La fecha es obligatoria.',
+            'fecha.before_or_equal'   => 'La fecha no puede ser posterior a hoy.',
         ]);
 
         $compra = Compra::create([
@@ -70,8 +74,8 @@ class CompraController extends Controller
             'denominacion_id'          => 'required|exists:denominaciones,id',
             'serie'                    => 'nullable|string|max:10',
             'rangos'                   => 'required|array|min:1',
-            'rangos.*.numero_inicio'   => 'required|integer|min:1',
-            'rangos.*.numero_fin'      => 'required|integer|min:1',
+            'rangos.*.numero_inicio'   => 'required|integer|min:1|max:999999999',
+            'rangos.*.numero_fin'      => 'required|integer|min:1|max:999999999',
         ], [
             'tipo_especie_id.required' => 'Seleccione un tipo de especie.',
             'denominacion_id.required' => 'Seleccione una denominación.',
@@ -86,7 +90,8 @@ class CompraController extends Controller
             return back()->withErrors(['denominacion_id' => 'La denominación no pertenece al tipo seleccionado.'])->withInput();
         }
 
-        $rangos = $request->rangos;
+        // Reindexar: al quitar filas en el formulario los indices llegan con huecos (0, 2, 3...)
+        $rangos = array_values($request->rangos);
 
         // Inicio <= Fin en cada rango
         foreach ($rangos as $i => $rango) {
@@ -109,55 +114,47 @@ class CompraController extends Controller
             }
         }
 
-        // Sin solapamiento con lote_rangos existentes del mismo tipo Y misma serie
-        $tipoId = $request->tipo_especie_id;
-        $serie  = $request->serie ?: null;
+        // El correlativo es unico por tipo y serie: la misma numeracion se repite entre series distintas
+        $tipoId = (int) $request->tipo_especie_id;
+        $serie  = Inventario::serie($request->serie);
 
-        foreach ($rangos as $rango) {
-            $inicio = (int) $rango['numero_inicio'];
-            $fin    = (int) $rango['numero_fin'];
+        DB::transaction(function () use ($request, $compra, $rangos, $tipoId, $serie) {
+            Inventario::bloquear($tipoId);
 
-            $overlap = LoteRango::whereHas('lote', function ($q) use ($tipoId, $serie) {
-                    $q->where('tipo_especie_id', $tipoId)
-                      ->where(fn($q2) => $serie
-                          ? $q2->where('serie', $serie)
-                          : $q2->whereNull('serie')->orWhere('serie', ''));
-                })
-                ->where('numero_inicio', '<=', $fin)
-                ->where('numero_fin', '>=', $inicio)
-                ->exists();
+            foreach ($rangos as $rango) {
+                $inicio = (int) $rango['numero_inicio'];
+                $fin    = (int) $rango['numero_fin'];
 
-            if ($overlap) {
-                return back()
-                    ->withErrors(['rangos' => "El rango {$inicio}–{$fin} ya existe en otro lote del mismo tipo" . ($serie ? " y serie «{$serie}»" : '') . '.'])
-                    ->withInput();
+                $overlap = LoteRango::whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipoId)
+                        ->where(fn($q2) => $serie === null ? $q2->whereNull('serie') : $q2->where('serie', $serie)))
+                    ->where('numero_inicio', '<=', $fin)
+                    ->where('numero_fin', '>=', $inicio)
+                    ->exists();
+
+                if ($overlap) {
+                    throw ValidationException::withMessages(['rangos' => "El rango {$inicio}–{$fin} ya existe en otro lote del mismo tipo"
+                        . ($serie ? " y serie «{$serie}»" : ' sin serie') . '.']);
+                }
             }
-        }
 
-        $cantidadTotal = collect($rangos)->sum(
-            fn($r) => (int)$r['numero_fin'] - (int)$r['numero_inicio'] + 1
-        );
-
-        $lote = Lote::create([
-            'compra_id'       => $compra->id,
-            'tipo_especie_id' => $request->tipo_especie_id,
-            'denominacion_id' => $request->denominacion_id,
-            'serie'           => $request->serie,
-            'cantidad_total'  => $cantidadTotal,
-        ]);
-
-        foreach ($rangos as $rango) {
-            LoteRango::create([
-                'lote_id'       => $lote->id,
-                'numero_inicio' => (int) $rango['numero_inicio'],
-                'numero_fin'    => (int) $rango['numero_fin'],
+            $lote = Lote::create([
+                'compra_id'       => $compra->id,
+                'tipo_especie_id' => $tipoId,
+                'denominacion_id' => $request->denominacion_id,
+                'serie'           => $serie,
+                'cantidad_total'  => collect($rangos)->sum(fn($r) => (int) $r['numero_fin'] - (int) $r['numero_inicio'] + 1),
             ]);
-        }
 
-        // Recalcular monto total de la compra
-        $compra->load('lotes.denominacion');
-        $monto = $compra->lotes->sum(fn($l) => $l->cantidad_total * $l->denominacion->valor);
-        $compra->update(['monto_total' => $monto]);
+            foreach ($rangos as $rango) {
+                LoteRango::create([
+                    'lote_id'       => $lote->id,
+                    'numero_inicio' => (int) $rango['numero_inicio'],
+                    'numero_fin'    => (int) $rango['numero_fin'],
+                ]);
+            }
+
+            $this->recalcularMonto($compra);
+        });
 
         return redirect()->route('admin.especies.compras.show', $compra)
             ->with('success_lote', 'Lote agregado correctamente.');
@@ -166,20 +163,32 @@ class CompraController extends Controller
     public function update(Request $request, Compra $compra)
     {
         $request->validate([
-            'numero_factura' => 'required|string|max:100|unique:compras,numero_factura,' . $compra->id,
-            'fecha'          => 'required|date',
+            'numero_factura' => 'required|string|max:50|unique:compras,numero_factura,' . $compra->id,
+            'fecha'          => 'required|date|before_or_equal:today',
             'observaciones'  => 'nullable|string|max:500',
         ], [
             'numero_factura.required' => 'El número de factura es obligatorio.',
             'numero_factura.unique'   => 'Ya existe una compra con ese número de factura.',
             'fecha.required'          => 'La fecha es obligatoria.',
+            'fecha.before_or_equal'   => 'La fecha no puede ser posterior a hoy.',
         ]);
 
-        $compra->update([
-            'numero_factura' => $request->numero_factura,
-            'fecha'          => $request->fecha,
-            'observaciones'  => $request->observaciones,
-        ]);
+        // Mover la fecha de compra no puede dejar envios de bodega anteriores a la compra
+        try {
+            DB::transaction(function () use ($request, $compra) {
+                Inventario::bloquear(...$compra->lotes()->distinct()->pluck('tipo_especie_id')->all());
+
+                $compra->update([
+                    'numero_factura' => $request->numero_factura,
+                    'fecha'          => $request->fecha,
+                    'observaciones'  => $request->observaciones,
+                ]);
+
+                Inventario::asegurar($compra->lotes()->pluck('id')->map(fn($id) => [null, $id])->all(), 'fecha');
+            });
+        } catch (ValidationException $e) {
+            return back()->with('error', 'No se guardó el cambio: con esa fecha, ' . lcfirst(collect($e->errors())->flatten()->first()));
+        }
 
         return redirect()->route('admin.especies.compras.historial')
             ->with('success', 'Compra actualizada correctamente.');
@@ -187,19 +196,24 @@ class CompraController extends Controller
 
     public function destroy(Compra $compra)
     {
-        $tieneTraslados = \DB::table('traslado_detalles')
-            ->whereIn('lote_id', $compra->lotes()->pluck('id'))
-            ->exists();
+        $eliminada = DB::transaction(function () use ($compra) {
+            Inventario::bloquear(...$compra->lotes()->distinct()->pluck('tipo_especie_id')->all());
 
-        if ($tieneTraslados) {
+            if (DB::table('traslado_detalles')->whereIn('lote_id', $compra->lotes()->pluck('id'))->exists()) {
+                return false;
+            }
+
+            foreach ($compra->lotes as $lote) {
+                $lote->rangos()->delete();
+                $lote->delete();
+            }
+            $compra->delete();
+            return true;
+        });
+
+        if (!$eliminada) {
             return back()->with('error', 'No se puede eliminar: la compra tiene lotes con traslados asociados.');
         }
-
-        foreach ($compra->lotes as $lote) {
-            $lote->rangos()->delete();
-            $lote->delete();
-        }
-        $compra->delete();
 
         return redirect()->route('admin.especies.compras.historial')
             ->with('success', 'Compra eliminada correctamente.');
@@ -207,19 +221,32 @@ class CompraController extends Controller
 
     public function destroyLote(Compra $compra, Lote $lote)
     {
-        if (\DB::table('traslado_detalles')->where('lote_id', $lote->id)->exists()) {
+        abort_if($lote->compra_id != $compra->id, 404);
+
+        $eliminado = DB::transaction(function () use ($compra, $lote) {
+            Inventario::bloquear($lote->tipo_especie_id);
+
+            if (DB::table('traslado_detalles')->where('lote_id', $lote->id)->exists()) {
+                return false;
+            }
+
+            $lote->rangos()->delete();
+            $lote->delete();
+            $this->recalcularMonto($compra);
+            return true;
+        });
+
+        if (!$eliminado) {
             return back()->with('error_lote', 'No se puede eliminar: el lote ya tiene traslados asociados.');
         }
 
-        $lote->rangos()->delete();
-        $lote->delete();
-
-        // Recalcular monto
-        $compra->load('lotes.denominacion');
-        $monto = $compra->lotes->sum(fn($l) => $l->cantidad_total * $l->denominacion->valor);
-        $compra->update(['monto_total' => $monto]);
-
         return redirect()->route('admin.especies.compras.show', $compra)
             ->with('success_lote', 'Lote eliminado correctamente.');
+    }
+
+    private function recalcularMonto(Compra $compra): void
+    {
+        $compra->load('lotes.denominacion');
+        $compra->update(['monto_total' => $compra->lotes->sum(fn($l) => $l->cantidad_total * $l->denominacion->valor)]);
     }
 }

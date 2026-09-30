@@ -64,9 +64,6 @@
                 <div id="rangosInfo" class="alert alert-info py-2" style="display:none">
                     <strong>Rangos disponibles:</strong> <span id="rangosList"></span>
                     <br><strong>Stock disponible:</strong> <span id="stockDisp"></span>
-                    <span id="rangosUsadosRow" style="display:none">
-                        <br><strong>Ya transferidos:</strong> <span id="rangosUsadosList"></span>
-                    </span>
                 </div>
 
                 <div class="row">
@@ -124,22 +121,12 @@ function mostrarInfoLote() {
     const infoEl = document.getElementById('rangosInfo');
     if (!loteEl.value) { infoEl.style.display = 'none'; return; }
 
-    const selected     = loteEl.options[loteEl.selectedIndex];
-    const rangos       = JSON.parse(selected.dataset.rangos || '[]');
-    const rangosUsados = JSON.parse(selected.dataset.rangosUsados || '[]');
+    const selected = loteEl.options[loteEl.selectedIndex];
+    const rangos   = JSON.parse(selected.dataset.rangos || '[]');
 
     document.getElementById('rangosList').textContent =
-        rangos.map(r => r.inicio.toLocaleString() + ' – ' + r.fin.toLocaleString()).join(' | ');
+        rangos.map(r => r.inicio === r.fin ? r.inicio.toLocaleString() : r.inicio.toLocaleString() + ' – ' + r.fin.toLocaleString()).join(' | ');
     document.getElementById('stockDisp').textContent = Number(selected.dataset.disponible).toLocaleString();
-
-    const usadosRow = document.getElementById('rangosUsadosRow');
-    if (rangosUsados.length > 0) {
-        document.getElementById('rangosUsadosList').textContent =
-            rangosUsados.map(r => r.inicio.toLocaleString() + ' – ' + r.fin.toLocaleString()).join(' | ');
-        usadosRow.style.display = '';
-    } else {
-        usadosRow.style.display = 'none';
-    }
     infoEl.style.display = '';
 }
 
@@ -178,7 +165,6 @@ function cargarLotes(restoreLoteId) {
                     opt.textContent       = l.label;
                     opt.dataset.disponible    = l.disponible;
                     opt.dataset.rangos        = JSON.stringify(l.rangos);
-                    opt.dataset.rangosUsados  = JSON.stringify(l.rangos_usados);
                     loteEl.appendChild(opt);
                 });
                 loteEl.disabled = false;

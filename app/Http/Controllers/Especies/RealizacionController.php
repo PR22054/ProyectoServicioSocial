@@ -8,8 +8,11 @@ use App\Models\Distrito;
 use App\Models\Nula;
 use App\Models\Realizacion;
 use App\Models\TipoEspecie;
-use App\Models\TrasladoDetalle;
+use App\Services\Inventario;
+use App\Services\Tarifas;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class RealizacionController extends Controller
 {
@@ -21,15 +24,16 @@ class RealizacionController extends Controller
         $distFiltro = $request->distrito_id;
         $tipoFiltro = $request->tipo_especie_id;
 
-        $realizaciones = Realizacion::with('tipoEspecie', 'denominacion', 'distrito', 'usuario')
+        $consulta = Realizacion::with('tipoEspecie', 'denominacion', 'distrito', 'usuario')
             ->when($distFiltro, fn($q) => $q->where('distrito_id', $distFiltro))
-            ->when($tipoFiltro, fn($q) => $q->where('tipo_especie_id', $tipoFiltro))
-            ->orderByDesc('fecha')
-            ->orderByDesc('id')
-            ->get();
+            ->when($tipoFiltro, fn($q) => $q->where('tipo_especie_id', $tipoFiltro));
+
+        // El total cobrado es de todo el filtro, no solo de la pagina visible
+        $totalCobrado  = (clone $consulta)->sum('monto_cobrado');
+        $realizaciones = $consulta->orderByDesc('fecha')->orderByDesc('id')->paginate(25)->withQueryString();
 
         return view('frontend.admin.especies.realizaciones.historial',
-            compact('realizaciones', 'distritos', 'tipos', 'distFiltro', 'tipoFiltro'));
+            compact('realizaciones', 'totalCobrado', 'distritos', 'tipos', 'distFiltro', 'tipoFiltro'));
     }
 
     public function crear()
@@ -43,63 +47,18 @@ class RealizacionController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'distrito_id'          => 'required|exists:distritos,id',
-            'tipo_especie_id'      => 'required|exists:tipo_especies,id',
-            'denominacion_id'      => 'required|exists:denominaciones,id',
-            'numero_inicio'        => 'required|integer|min:1',
-            'numero_fin'           => 'required|integer|min:1',
-            'fecha'                => 'required|date',
-            'nombre_contribuyente' => 'nullable|string|max:200',
-        ], [
-            'distrito_id.required'     => 'Seleccione un distrito.',
-            'tipo_especie_id.required' => 'Seleccione un tipo de especie.',
-            'denominacion_id.required' => 'Seleccione una denominación.',
-            'numero_inicio.required'   => 'El número de inicio es obligatorio.',
-            'numero_fin.required'      => 'El número de fin es obligatorio.',
-            'fecha.required'           => 'La fecha es obligatoria.',
-        ]);
+        $datos = $this->datos($request);
 
-        $inicio = (int) $request->numero_inicio;
-        $fin    = (int) $request->numero_fin;
+        DB::transaction(function () use ($datos) {
+            Inventario::bloquear($datos['tipo_especie_id']);
+            $this->validarRango($datos);
 
-        if ($inicio > $fin) {
-            return back()
-                ->withErrors(['numero_fin' => 'El número fin debe ser mayor al inicio.'])
-                ->withInput();
-        }
-
-        $cantidad = $fin - $inicio + 1;
-        $tipoId   = $request->tipo_especie_id;
-        $distId   = $request->distrito_id;
-        $denomId  = $request->denominacion_id;
-
-        $denom = Denominacion::findOrFail($denomId);
-        if ($denom->tipo_especie_id != $tipoId) {
-            return back()
-                ->withErrors(['denominacion_id' => 'La denominación no pertenece al tipo seleccionado.'])
-                ->withInput();
-        }
-
-        if ($error = $this->validarRango($distId, $tipoId, $inicio, $fin)) {
-            return back()->withErrors($error)->withInput();
-        }
-
-        Realizacion::create([
-            'tipo_especie_id'      => $tipoId,
-            'denominacion_id'      => $denomId,
-            'distrito_id'          => $distId,
-            'numero_inicio'        => $inicio,
-            'numero_fin'           => $fin,
-            'cantidad'             => $cantidad,
-            'fecha'                => $request->fecha,
-            'nombre_contribuyente' => $request->nombre_contribuyente,
-            'monto_cobrado'        => $cantidad * $denom->valor,
-            'usuario_id'           => auth()->id(),
-        ]);
+            $realizacion = Realizacion::create($datos + ['usuario_id' => auth()->id()]);
+            Inventario::asegurar($this->pares($realizacion));
+        });
 
         return redirect()->route('admin.especies.realizaciones.historial')
-            ->with('success', "Realización registrada: {$cantidad} documentos por $" . number_format($cantidad * $denom->valor, 2) . '.');
+            ->with('success', "Realización registrada: {$datos['cantidad']} documentos por $" . number_format($datos['monto_cobrado'], 2) . '.');
     }
 
     public function editar(Realizacion $realizacion)
@@ -113,59 +72,19 @@ class RealizacionController extends Controller
 
     public function update(Request $request, Realizacion $realizacion)
     {
-        $request->validate([
-            'distrito_id'          => 'required|exists:distritos,id',
-            'tipo_especie_id'      => 'required|exists:tipo_especies,id',
-            'denominacion_id'      => 'required|exists:denominaciones,id',
-            'numero_inicio'        => 'required|integer|min:1',
-            'numero_fin'           => 'required|integer|min:1',
-            'fecha'                => 'required|date',
-            'nombre_contribuyente' => 'nullable|string|max:200',
-        ], [
-            'distrito_id.required'     => 'Seleccione un distrito.',
-            'tipo_especie_id.required' => 'Seleccione un tipo de especie.',
-            'denominacion_id.required' => 'Seleccione una denominación.',
-            'numero_inicio.required'   => 'El número de inicio es obligatorio.',
-            'numero_fin.required'      => 'El número de fin es obligatorio.',
-            'fecha.required'           => 'La fecha es obligatoria.',
-        ]);
+        $datos = $this->datos($request);
 
-        $inicio = (int) $request->numero_inicio;
-        $fin    = (int) $request->numero_fin;
+        DB::transaction(function () use ($datos, $realizacion) {
+            Inventario::bloquear($realizacion->tipo_especie_id, $datos['tipo_especie_id']);
+            $realizacion->refresh();
 
-        if ($inicio > $fin) {
-            return back()
-                ->withErrors(['numero_fin' => 'El número fin debe ser mayor al inicio.'])
-                ->withInput();
-        }
+            // Se ignora la propia realizacion al validar solapamientos
+            $this->validarRango($datos, $realizacion->id);
 
-        $cantidad = $fin - $inicio + 1;
-        $tipoId   = $request->tipo_especie_id;
-        $distId   = $request->distrito_id;
-
-        $denom = Denominacion::findOrFail($request->denominacion_id);
-        if ($denom->tipo_especie_id != $tipoId) {
-            return back()
-                ->withErrors(['denominacion_id' => 'La denominación no pertenece al tipo seleccionado.'])
-                ->withInput();
-        }
-
-        // Se ignora la propia realizacion al validar solapamientos
-        if ($error = $this->validarRango($distId, $tipoId, $inicio, $fin, $realizacion->id)) {
-            return back()->withErrors($error)->withInput();
-        }
-
-        $realizacion->update([
-            'tipo_especie_id'      => $tipoId,
-            'denominacion_id'      => $denom->id,
-            'distrito_id'          => $distId,
-            'numero_inicio'        => $inicio,
-            'numero_fin'           => $fin,
-            'cantidad'             => $cantidad,
-            'fecha'                => $request->fecha,
-            'nombre_contribuyente' => $request->nombre_contribuyente,
-            'monto_cobrado'        => $cantidad * $denom->valor,
-        ]);
+            $antes = $this->pares($realizacion);
+            $realizacion->update($datos);
+            Inventario::asegurar(array_merge($antes, $this->pares($realizacion)));
+        });
 
         return redirect()->route('admin.especies.realizaciones.historial')
             ->with('success', 'Realización actualizada correctamente.');
@@ -175,117 +94,149 @@ class RealizacionController extends Controller
     {
         $realizacion->delete();
 
-        return redirect()->route('admin.especies.realizaciones.historial')
-            ->with('success', 'Realización eliminada correctamente.');
+        // back() conserva la pagina y los filtros del historial
+        return back()->with('success', 'Realización eliminada correctamente.');
+    }
+
+    // Valida el formulario y devuelve los campos listos para guardar
+    private function datos(Request $request): array
+    {
+        $request->validate([
+            'distrito_id'          => 'required|exists:distritos,id',
+            'tipo_especie_id'      => 'required|exists:tipo_especies,id',
+            'denominacion_id'      => 'required|exists:denominaciones,id',
+            'serie'                => 'nullable|string|max:10',
+            'numero_inicio'        => 'required|integer|min:1|max:999999999',
+            'numero_fin'           => 'required|integer|min:1|max:999999999|gte:numero_inicio',
+            'fecha'                => 'required|date|before_or_equal:today',
+            'nombre_contribuyente' => 'nullable|string|max:200',
+        ], [
+            'fecha.before_or_equal'    => 'La fecha no puede ser posterior a hoy.',
+            'distrito_id.required'     => 'Seleccione un distrito.',
+            'tipo_especie_id.required' => 'Seleccione un tipo de especie.',
+            'denominacion_id.required' => 'Seleccione una denominación.',
+            'numero_inicio.required'   => 'El número de inicio es obligatorio.',
+            'numero_fin.required'      => 'El número de fin es obligatorio.',
+            'numero_fin.gte'           => 'El número fin debe ser mayor o igual al inicio.',
+            'numero_inicio.max'        => 'El número de inicio no es válido.',
+            'numero_fin.max'           => 'El número fin no es válido.',
+            'fecha.required'           => 'La fecha es obligatoria.',
+        ]);
+
+        $denom = Denominacion::findOrFail($request->denominacion_id);
+        if ($denom->tipo_especie_id != $request->tipo_especie_id) {
+            throw ValidationException::withMessages(['denominacion_id' => 'La denominación no pertenece al tipo seleccionado.']);
+        }
+
+        $inicio   = (int) $request->numero_inicio;
+        $fin      = (int) $request->numero_fin;
+        $cantidad = $fin - $inicio + 1;
+
+        // Se cobra el precio de venta del distrito; el valor de la denominacion es el del libro y
+        // puede ser el costo (carnet: $0.09 en libro, $2.00 cobrado). Sin precio de venta no se cobra.
+        $precioVenta = Tarifas::precioVenta((int) $request->distrito_id, $denom) ?? 0;
+
+        return [
+            'distrito_id'          => (int) $request->distrito_id,
+            'tipo_especie_id'      => (int) $request->tipo_especie_id,
+            'denominacion_id'      => $denom->id,
+            'serie'                => Inventario::serie($request->serie),
+            'numero_inicio'        => $inicio,
+            'numero_fin'           => $fin,
+            'cantidad'             => $cantidad,
+            'fecha'                => $request->fecha,
+            'nombre_contribuyente' => $request->nombre_contribuyente,
+            'monto_cobrado'        => round($cantidad * $precioVenta, 2),
+        ];
     }
 
     /**
-     * Valida que el rango sea realizable en el distrito. Devuelve el error o null.
-     * $ignorarId excluye una realizacion del chequeo de solapamiento (para edicion).
+     * Reglas propias del rango. Que el distrito tuviera esos documentos en esa fecha
+     * lo verifica Inventario::asegurar despues de escribir.
      */
-    private function validarRango(int $distId, int $tipoId, int $inicio, int $fin, ?int $ignorarId = null): ?array
+    private function validarRango(array $d, ?int $ignorarId = null): void
     {
-        if (!$this->rangoCubierto($distId, $tipoId, $inicio, $fin)) {
-            return ['numero_inicio' => 'El rango no está dentro de los documentos trasladados a este distrito.'];
+        $serie = fn($q) => $d['serie'] === null ? $q->whereNull('serie') : $q->where('serie', $d['serie']);
+
+        $lotes   = Inventario::lotesDelRango($d['tipo_especie_id'], $d['serie'], $d['numero_inicio'], $d['numero_fin']);
+        $propios = $lotes->where('denominacion_id', $d['denominacion_id'])
+            ->flatMap(fn($l) => $l->rangos->map(fn($r) => [$r->numero_inicio, $r->numero_fin]))
+            ->all();
+
+        if (!Inventario::contiene($propios, $d['numero_inicio'], $d['numero_fin'])) {
+            $otra = $lotes->firstWhere('denominacion_id', '!=', $d['denominacion_id']);
+            throw ValidationException::withMessages(['numero_inicio' => $otra
+                ? 'Esos números pertenecen a la denominación de $' . number_format($otra->denominacion->valor, 2) . '.'
+                : 'Ese rango no existe completo en ninguna compra de ese tipo ' . ($d['serie'] ? "y serie {$d['serie']}." : 'sin serie.')]);
         }
 
-        $overlapReal = Realizacion::where('tipo_especie_id', $tipoId)
+        $realizada = Realizacion::with('distrito')
+            ->where('tipo_especie_id', $d['tipo_especie_id'])
+            ->where($serie)
             ->when($ignorarId, fn($q) => $q->where('id', '!=', $ignorarId))
-            ->where('numero_inicio', '<=', $fin)
-            ->where('numero_fin',    '>=', $inicio)
-            ->exists();
+            ->where('numero_inicio', '<=', $d['numero_fin'])
+            ->where('numero_fin', '>=', $d['numero_inicio'])
+            ->first();
 
-        if ($overlapReal) {
-            return ['numero_inicio' => 'Parte o la totalidad del rango ya fue realizada anteriormente.'];
+        if ($realizada) {
+            throw ValidationException::withMessages(['numero_inicio' => 'Parte del rango ya fue realizada ('
+                . number_format($realizada->numero_inicio) . '–' . number_format($realizada->numero_fin)
+                . ", {$realizada->fecha->format('d/m/Y')}, {$realizada->distrito->nombre})."]);
         }
 
-        $overlapNula = Nula::whereHas('trasladoDetalle', function ($q) use ($distId, $tipoId) {
-                $q->whereHas('traslado', fn($q2) => $q2->where('distrito_id', $distId))
-                  ->whereHas('lote',     fn($q2) => $q2->where('tipo_especie_id', $tipoId));
-            })
-            ->where('numero_inicio', '<=', $fin)
-            ->where('numero_fin',    '>=', $inicio)
-            ->exists();
+        $anulada = Nula::whereHas('trasladoDetalle.lote', fn($q) => $q->where('tipo_especie_id', $d['tipo_especie_id'])->where($serie))
+            ->where('numero_inicio', '<=', $d['numero_fin'])
+            ->where('numero_fin', '>=', $d['numero_inicio'])
+            ->first();
 
-        if ($overlapNula) {
-            return ['numero_inicio' => 'Parte o la totalidad del rango está anulada y no puede realizarse.'];
+        if ($anulada) {
+            throw ValidationException::withMessages(['numero_inicio' => 'Parte del rango está anulada ('
+                . number_format($anulada->numero_inicio) . '–' . number_format($anulada->numero_fin)
+                . ", {$anulada->fecha->format('d/m/Y')}) y no puede realizarse."]);
         }
-
-        return null;
     }
 
-    // AJAX: stock disponible + denominaciones para distrito + tipo
+    // Pares distrito-lote cuya historia toca esta realizacion
+    private function pares(Realizacion $r): array
+    {
+        return Inventario::lotesDelRango($r->tipo_especie_id, $r->serie, $r->numero_inicio, $r->numero_fin)
+            ->map(fn($l) => [$r->distrito_id, $l->id])
+            ->all();
+    }
+
+    // AJAX: lo que el distrito tiene de un tipo, agrupado por denominacion y serie
     public function ajaxInfoDistritoTipo(Request $request)
     {
-        $distId = (int) $request->distrito_id;
-        $tipoId = (int) $request->tipo_especie_id;
+        $distritoId = (int) $request->distrito_id;
+        $inv = Inventario::distrito($distritoId, (int) $request->tipo_especie_id,
+            null, $request->integer('ignorar') ?: null);
 
-        $detalles = TrasladoDetalle::whereHas('traslado', fn($q) => $q->where('distrito_id', $distId))
-            ->whereHas('lote',     fn($q) => $q->where('tipo_especie_id', $tipoId))
-            ->get(['numero_inicio', 'numero_fin', 'cantidad']);
+        $grupos = $inv->filter(fn($r) => $r['cantidad'] > 0)
+            ->groupBy(fn($r) => $r['lote']->denominacion_id . '|' . $r['lote']->serie)
+            ->map(function ($filas) use ($distritoId) {
+                $lote       = $filas->first()['lote'];
+                $intervalos = Inventario::neto($filas->pluck('intervalos')->collapse()->all());
 
-        $recibido = $detalles->sum('cantidad');
-
-        // Documentos que salieron del distrito (devueltos a bodega o enviados a otro distrito)
-        $salido = TrasladoDetalle::whereHas('traslado', fn($q) =>
-                $q->whereIn('tipo', ['distrito_bodega', 'distrito_distrito'])
-                  ->where('origen_distrito_id', $distId))
-            ->whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipoId))
-            ->sum('cantidad');
-
-        $anulado = Nula::whereHas('trasladoDetalle', function ($q) use ($distId, $tipoId) {
-                $q->whereHas('traslado', fn($q2) => $q2->where('distrito_id', $distId))
-                  ->whereHas('lote',     fn($q2) => $q2->where('tipo_especie_id', $tipoId));
+                return [
+                    'denominacion_id' => $lote->denominacion_id,
+                    'valor'           => (float) $lote->denominacion->valor,
+                    'precio_venta'    => Tarifas::precioVenta($distritoId, $lote->denominacion),
+                    'etiqueta'        => $lote->denominacion->etiqueta,
+                    'serie'           => $lote->serie,
+                    'disponible'      => Inventario::total($intervalos),
+                    'rangos'          => array_map(fn($i) => ['inicio' => $i[0], 'fin' => $i[1]], $intervalos),
+                ];
             })
-            ->selectRaw('COALESCE(SUM(numero_fin - numero_inicio + 1), 0) as total')
-            ->value('total') ?? 0;
+            ->sort(fn($a, $b) => [$a['valor'], (string) $a['serie']] <=> [$b['valor'], (string) $b['serie']])
+            ->values();
 
-        $realizado = Realizacion::where('tipo_especie_id', $tipoId)
-            ->where('distrito_id', $distId)
-            ->sum('cantidad');
-
-        $disponible = $recibido - $salido - $anulado - $realizado;
-
-        $denominaciones = Denominacion::where('tipo_especie_id', $tipoId)
-            ->where('activo', true)
-            ->orderBy('valor')
-            ->get(['id', 'valor']);
-
-        $rangos = $detalles->map(fn($d) => [
-            'inicio' => $d->numero_inicio,
-            'fin'    => $d->numero_fin,
+        return response()->json([
+            'recibido'   => $inv->sum('recibido'),
+            'salido'     => $inv->sum('salido'),
+            'anulado'    => $inv->sum('anulado'),
+            'realizado'  => $inv->sum('realizado'),
+            'disponible' => $inv->sum('cantidad'),
+            'grupos'     => $grupos,
         ]);
-
-        return response()->json(compact('disponible', 'recibido', 'salido', 'anulado', 'realizado', 'rangos', 'denominaciones'));
-    }
-
-    private function rangoCubierto(int $distId, int $tipoId, int $inicio, int $fin): bool
-    {
-        $detalles = TrasladoDetalle::whereHas('traslado', fn($q) => $q->where('distrito_id', $distId))
-            ->whereHas('lote',     fn($q) => $q->where('tipo_especie_id', $tipoId))
-            ->where('numero_inicio', '<=', $fin)
-            ->where('numero_fin',   '>=', $inicio)
-            ->orderBy('numero_inicio')
-            ->get(['numero_inicio', 'numero_fin']);
-
-        if ($detalles->isEmpty()) return false;
-
-        $cubierto = $inicio;
-        foreach ($detalles as $d) {
-            if ($d->numero_inicio > $cubierto) break;
-            $cubierto = max($cubierto, $d->numero_fin + 1);
-            if ($cubierto > $fin) return true;
-        }
-
-        if ($cubierto <= $fin) return false;
-
-        // Verificar que ninguna parte del rango salió del distrito (devolucion o traslado a otro distrito)
-        return !TrasladoDetalle::whereHas('traslado', fn($q) =>
-                $q->whereIn('tipo', ['distrito_bodega', 'distrito_distrito'])
-                  ->where('origen_distrito_id', $distId))
-            ->whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipoId))
-            ->where('numero_inicio', '<=', $fin)
-            ->where('numero_fin', '>=', $inicio)
-            ->exists();
     }
 }

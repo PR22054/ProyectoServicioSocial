@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 //CRUD para la tabla anios, accesible solo para el rol admin
 use App\Models\Anio;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class AnioController extends Controller
 {
@@ -28,10 +29,11 @@ class AnioController extends Controller
     {
         $request->validate([
             'anio' => 'required|integer|digits:4|min:1900|max:2100|unique:anios,anio',
-            'archivo_excel' => 'nullable|string',
+            'archivo_excel' => ['nullable', 'string', Rule::in($this->archivosExcel())],
         ], [
             'anio.unique' => 'Ese año ya está registrado.',
             'anio.digits' => 'El año debe tener 4 dígitos.',
+            'archivo_excel.in' => 'Seleccione un archivo Excel de la lista.',
         ]);
 
         Anio::create([
@@ -54,10 +56,11 @@ class AnioController extends Controller
     {
         $request->validate([
             'anio' => 'required|integer|digits:4|min:1900|max:2100|unique:anios,anio,' . $anio->id,
-            'archivo_excel' => 'nullable|string',
+            'archivo_excel' => ['nullable', 'string', Rule::in($this->archivosExcel())],
         ], [
             'anio.unique' => 'Ese año ya está registrado.',
             'anio.digits' => 'El año debe tener 4 dígitos.',
+            'archivo_excel.in' => 'Seleccione un archivo Excel de la lista.',
         ]);
 
         $anio->update([

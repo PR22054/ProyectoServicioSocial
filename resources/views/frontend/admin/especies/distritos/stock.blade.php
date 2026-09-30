@@ -26,7 +26,7 @@
 
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">Stock en distritos ({{ $detalles->count() }} detalle(s))</h3>
+            <h3 class="card-title">Stock en distritos ({{ $filas->count() }} lote(s))</h3>
         </div>
         <div class="card-body p-0">
             <table class="table table-striped table-sm mb-0">
@@ -36,46 +36,50 @@
                         <th>Distrito</th>
                         <th>Tipo de especie</th>
                         <th>Denominación</th>
+                        <th class="text-center">Serie</th>
                         <th>Factura</th>
-                        <th class="text-center">Rango recibido</th>
+                        <th>Rangos en existencia</th>
                         <th class="text-right">Recibido</th>
+                        <th class="text-right">Salidas</th>
                         <th class="text-right">Anulado</th>
                         <th class="text-right">Realizado</th>
                         <th class="text-right">Disponible</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($detalles as $d)
-                    <tr class="{{ $d->disponible == 0 ? 'text-muted' : '' }}">
+                    @forelse($filas as $f)
+                    <tr class="{{ $f['cantidad'] == 0 ? 'text-muted' : '' }}">
                         <td>{{ $loop->iteration }}</td>
-                        <td>{{ $d->traslado->distrito->nombre ?? '—' }}</td>
-                        <td>{{ $d->lote->tipoEspecie->nombre ?? '—' }}</td>
-                        <td>${{ number_format($d->lote->denominacion->valor ?? 0, 2) }}</td>
-                        <td>{{ $d->lote->compra->numero_factura ?? '—' }}</td>
-                        <td class="text-center">
-                            <span class="badge badge-secondary">
-                                {{ number_format($d->numero_inicio) }} – {{ number_format($d->numero_fin) }}
-                            </span>
+                        <td>{{ $f['distrito']->nombre }}</td>
+                        <td>{{ $f['lote']->tipoEspecie->nombre ?? '—' }}</td>
+                        <td>${{ number_format($f['valor'], 2) }}</td>
+                        <td class="text-center">{{ $f['lote']->serie ?? '—' }}</td>
+                        <td>{{ $f['lote']->compra->numero_factura ?? '—' }}</td>
+                        <td>
+                            @foreach($f['intervalos'] as [$i, $fin])
+                                <span class="badge badge-secondary">{{ number_format($i) }} – {{ number_format($fin) }}</span>
+                            @endforeach
                         </td>
-                        <td class="text-right">{{ number_format($d->cantidad) }}</td>
+                        <td class="text-right">{{ number_format($f['recibido']) }}</td>
+                        <td class="text-right">{{ number_format($f['salido']) }}</td>
                         <td class="text-right">
-                            @if($d->anulado > 0)
-                                <span class="text-danger">{{ number_format($d->anulado) }}</span>
+                            @if($f['anulado'] > 0)
+                                <span class="text-danger">{{ number_format($f['anulado']) }}</span>
                             @else
                                 0
                             @endif
                         </td>
                         <td class="text-right">
-                            @if($d->realizado > 0)
-                                <span class="text-primary">{{ number_format($d->realizado) }}</span>
+                            @if($f['realizado'] > 0)
+                                <span class="text-primary">{{ number_format($f['realizado']) }}</span>
                             @else
                                 0
                             @endif
                         </td>
                         <td class="text-right">
-                            @if($d->disponible > 0)
+                            @if($f['cantidad'] > 0)
                                 <span class="badge badge-success" style="font-size:.85rem">
-                                    {{ number_format($d->disponible) }}
+                                    {{ number_format($f['cantidad']) }}
                                 </span>
                             @else
                                 <span class="badge badge-secondary">0</span>
@@ -84,18 +88,19 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="10" class="text-center text-muted py-3">Sin datos de stock en distritos</td>
+                        <td colspan="12" class="text-center text-muted py-3">Sin datos de stock en distritos</td>
                     </tr>
                     @endforelse
                 </tbody>
-                @if($detalles->count() > 0)
+                @if($filas->count() > 0)
                 <tfoot class="font-weight-bold">
                     <tr>
-                        <td colspan="6" class="text-right">Totales:</td>
-                        <td class="text-right">{{ number_format($detalles->sum('cantidad')) }}</td>
-                        <td class="text-right">{{ number_format($detalles->sum('anulado')) }}</td>
-                        <td class="text-right">{{ number_format($detalles->sum('realizado')) }}</td>
-                        <td class="text-right">{{ number_format($detalles->sum('disponible')) }}</td>
+                        <td colspan="7" class="text-right">Totales:</td>
+                        <td class="text-right">{{ number_format($filas->sum('recibido')) }}</td>
+                        <td class="text-right">{{ number_format($filas->sum('salido')) }}</td>
+                        <td class="text-right">{{ number_format($filas->sum('anulado')) }}</td>
+                        <td class="text-right">{{ number_format($filas->sum('realizado')) }}</td>
+                        <td class="text-right">{{ number_format($filas->sum('cantidad')) }}</td>
                     </tr>
                 </tfoot>
                 @endif

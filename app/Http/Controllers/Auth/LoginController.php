@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 
 class LoginController extends Controller
 {
@@ -23,7 +25,19 @@ class LoginController extends Controller
             'password' => ['required', 'string'],
         ]);
 
+        //limite de intentos fallidos: 10 por usuario desde una IP y 30 por IP en total (para quien pruebe varios usuarios),
+        //ambos en ventanas de 1 minuto
+        $porUsuario = 'login|' . Str::transliterate(Str::lower($request->usuario)) . '|' . $request->ip();
+        $porIp      = 'login-ip|' . $request->ip();
+
+        if (RateLimiter::tooManyAttempts($porUsuario, 10) || RateLimiter::tooManyAttempts($porIp, 30)) {
+            $minutos = (int) ceil(max(RateLimiter::availableIn($porUsuario), RateLimiter::availableIn($porIp)) / 60);
+            return back()->withErrors(['usuario' => "Demasiados intentos fallidos. Intente de nuevo en {$minutos} "
+                . ($minutos === 1 ? 'minuto.' : 'minutos.')])->onlyInput('usuario');
+        }
+
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
+            RateLimiter::clear($porUsuario);
             $user = Auth::user();
 
             if ($user->hasRole('admin')) {
@@ -49,6 +63,8 @@ class LoginController extends Controller
         }
 
         //si las credenciales fallan regresa con error sin exponer detalles
+        RateLimiter::hit($porUsuario, 60);
+        RateLimiter::hit($porIp, 60);
         return back()->withErrors(['usuario' => 'Credenciales incorrectas.'])->onlyInput('usuario');
     }
 

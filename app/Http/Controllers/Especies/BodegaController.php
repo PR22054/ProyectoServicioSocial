@@ -5,12 +5,13 @@ namespace App\Http\Controllers\Especies;
 use App\Http\Controllers\Controller;
 use App\Models\Distrito;
 use App\Models\Lote;
-use App\Models\LoteRango;
-use App\Models\Realizacion;
 use App\Models\TipoEspecie;
 use App\Models\Traslado;
 use App\Models\TrasladoDetalle;
+use App\Services\Inventario;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class BodegaController extends Controller
 {
@@ -23,7 +24,7 @@ class BodegaController extends Controller
             ->withSum('detalles', 'cantidad')
             ->orderByDesc('fecha')
             ->orderByDesc('id')
-            ->get();
+            ->paginate(25);
 
         $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
 
@@ -43,7 +44,7 @@ class BodegaController extends Controller
 
         $rules = [
             'tipo'          => 'required|in:bodega_distrito,distrito_bodega,distrito_distrito',
-            'fecha'         => 'required|date',
+            'fecha'         => 'required|date|before_or_equal:today',
             'observaciones' => 'nullable|string|max:500',
         ];
 
@@ -60,6 +61,7 @@ class BodegaController extends Controller
             'distrito_id.required'        => 'Seleccione un distrito destino.',
             'distrito_id.different'       => 'El distrito destino debe ser diferente al de origen.',
             'origen_distrito_id.required' => 'Seleccione el distrito de origen.',
+            'fecha.before_or_equal'       => 'La fecha no puede ser posterior a hoy.',
         ]);
 
         $traslado = Traslado::create([
@@ -80,7 +82,7 @@ class BodegaController extends Controller
         // El tipo no se puede cambiar despues de crear; solo fecha, observaciones y districtos
         $tipo  = $traslado->tipo;
         $rules = [
-            'fecha'         => 'required|date',
+            'fecha'         => 'required|date|before_or_equal:today',
             'observaciones' => 'nullable|string|max:500',
         ];
 
@@ -97,6 +99,7 @@ class BodegaController extends Controller
             'distrito_id.required'        => 'Seleccione un distrito destino.',
             'distrito_id.different'       => 'El distrito destino debe ser diferente al de origen.',
             'origen_distrito_id.required' => 'Seleccione el distrito de origen.',
+            'fecha.before_or_equal'       => 'La fecha no puede ser posterior a hoy.',
         ]);
 
         $data = ['fecha' => $request->fecha, 'observaciones' => $request->observaciones];
@@ -108,7 +111,17 @@ class BodegaController extends Controller
             $data['origen_distrito_id'] = $request->origen_distrito_id;
         }
 
-        $traslado->update($data);
+        // Cambiar fecha o distritos mueve documentos en el tiempo: se revisan los poseedores de antes y de despues
+        try {
+            DB::transaction(function () use ($traslado, $data) {
+                Inventario::bloquear(...$this->tipos($traslado));
+                $antes = $this->pares($traslado);
+                $traslado->update($data);
+                Inventario::asegurar(array_merge($antes, $this->pares($traslado)), 'fecha');
+            });
+        } catch (ValidationException $e) {
+            return back()->with('error', 'No se guardó el cambio: con esa modificación, ' . lcfirst(collect($e->errors())->flatten()->first()));
+        }
 
         return redirect()->route('admin.especies.bodega.traslado.historial')
             ->with('success', 'Traslado actualizado correctamente.');
@@ -116,7 +129,7 @@ class BodegaController extends Controller
 
     public function trasladoDestroy(Traslado $traslado)
     {
-        $tieneNulas = \DB::table('nulas')
+        $tieneNulas = DB::table('nulas')
             ->whereIn('traslado_detalle_id', $traslado->detalles()->pluck('id'))
             ->exists();
 
@@ -124,11 +137,34 @@ class BodegaController extends Controller
             return back()->with('error', 'No se puede eliminar: el traslado tiene anulaciones registradas.');
         }
 
-        $traslado->detalles()->delete();
-        $traslado->delete();
+        try {
+            DB::transaction(function () use ($traslado) {
+                Inventario::bloquear(...$this->tipos($traslado));
+                $pares = $this->pares($traslado);
+                $traslado->detalles()->delete();
+                $traslado->delete();
+                Inventario::asegurar($pares);
+            });
+        } catch (ValidationException $e) {
+            return back()->with('error', 'No se puede eliminar: sin este traslado, ' . lcfirst(collect($e->errors())->flatten()->first()));
+        }
 
         return redirect()->route('admin.especies.bodega.traslado.historial')
             ->with('success', 'Traslado eliminado correctamente.');
+    }
+
+    // Poseedores que toca el traslado por cada lote: origen y destino (null = bodega)
+    private function pares(Traslado $traslado): array
+    {
+        return $traslado->detalles()->pluck('lote_id')->unique()
+            ->flatMap(fn($lote) => [[$traslado->origen_distrito_id, $lote], [$traslado->distrito_id, $lote]])
+            ->all();
+    }
+
+    private function tipos(Traslado $traslado): array
+    {
+        return $traslado->detalles()->join('lotes', 'lotes.id', '=', 'traslado_detalles.lote_id')
+            ->distinct()->pluck('lotes.tipo_especie_id')->all();
     }
 
     public function trasladoShow(Traslado $traslado)
@@ -155,179 +191,62 @@ class BodegaController extends Controller
     {
         $request->validate([
             'lote_id'       => 'required|exists:lotes,id',
-            'numero_inicio' => 'required|integer|min:1',
-            'numero_fin'    => 'required|integer|min:1',
+            'numero_inicio' => 'required|integer|min:1|max:999999999',
+            'numero_fin'    => 'required|integer|min:1|max:999999999|gte:numero_inicio',
         ], [
             'lote_id.required'       => 'Seleccione un lote.',
             'numero_inicio.required' => 'El número de inicio es obligatorio.',
             'numero_fin.required'    => 'El número de fin es obligatorio.',
+            'numero_fin.gte'         => 'El número fin debe ser mayor o igual al inicio.',
         ]);
 
         $inicio = (int) $request->numero_inicio;
         $fin    = (int) $request->numero_fin;
+        $lote   = Lote::with('rangos')->findOrFail($request->lote_id);
 
-        if ($inicio > $fin) {
+        $propios = $lote->rangos->map(fn($r) => [$r->numero_inicio, $r->numero_fin])->all();
+        if (!Inventario::contiene($propios, $inicio, $fin)) {
             return back()
-                ->withErrors(['numero_fin' => 'El número fin debe ser mayor al inicio.'])
+                ->withErrors(['numero_inicio' => 'El rango ingresado no pertenece a este lote.'])
                 ->withInput();
         }
 
-        $cantidad = $fin - $inicio + 1;
-        $lote     = Lote::with('rangos')->findOrFail($request->lote_id);
+        DB::transaction(function () use ($traslado, $lote, $inicio, $fin) {
+            Inventario::bloquear($lote->tipo_especie_id);
 
-        if ($traslado->tipo === 'bodega_distrito') {
-            return $this->storeDetalleBodegaDistrito($request, $traslado, $lote, $inicio, $fin, $cantidad);
-        } else {
-            return $this->storeDetalleDesdeDistrito($request, $traslado, $lote, $inicio, $fin, $cantidad);
-        }
-    }
+            TrasladoDetalle::create([
+                'traslado_id'   => $traslado->id,
+                'lote_id'       => $lote->id,
+                'numero_inicio' => $inicio,
+                'numero_fin'    => $fin,
+                'cantidad'      => $fin - $inicio + 1,
+            ]);
 
-    private function storeDetalleBodegaDistrito(Request $request, Traslado $traslado, Lote $lote, int $inicio, int $fin, int $cantidad)
-    {
-        // Rango debe estar contenido en algun bloque del lote
-        $rangoValido = LoteRango::where('lote_id', $lote->id)
-            ->where('numero_inicio', '<=', $inicio)
-            ->where('numero_fin', '>=', $fin)
-            ->exists();
-
-        if (!$rangoValido) {
-            return back()
-                ->withErrors(['numero_inicio' => 'El rango ingresado no pertenece a ningún bloque de este lote.'])
-                ->withInput();
-        }
-
-        // Overlap con traslados salientes desde bodega (sin contar devoluciones que lo retornaron)
-        $overlap = TrasladoDetalle::where('lote_id', $lote->id)
-            ->whereHas('traslado', fn($q) => $q->where('tipo', 'bodega_distrito'))
-            ->where('numero_inicio', '<=', $fin)
-            ->where('numero_fin', '>=', $inicio)
-            ->exists();
-
-        if ($overlap) {
-            // Permitir si el rango fue devuelto a bodega, aunque haya sido en varias devoluciones parciales
-            $devueltos = TrasladoDetalle::where('lote_id', $lote->id)
-                ->whereHas('traslado', fn($q) => $q->where('tipo', 'distrito_bodega'))
-                ->where('numero_inicio', '<=', $fin)
-                ->where('numero_fin', '>=', $inicio)
-                ->orderBy('numero_inicio')
-                ->get(['numero_inicio', 'numero_fin']);
-
-            if (!$this->rangoCubiertoPor($devueltos, $inicio, $fin)) {
-                return back()
-                    ->withErrors(['numero_inicio' => 'Ese rango (o parte de él) ya fue transferido a un distrito.'])
-                    ->withInput();
-            }
-        }
-
-        // Stock disponible en bodega (descontando lo enviado y sumando lo devuelto)
-        $enviado   = TrasladoDetalle::where('lote_id', $lote->id)
-            ->whereHas('traslado', fn($q) => $q->where('tipo', 'bodega_distrito'))->sum('cantidad');
-        $devuelto  = TrasladoDetalle::where('lote_id', $lote->id)
-            ->whereHas('traslado', fn($q) => $q->where('tipo', 'distrito_bodega'))->sum('cantidad');
-        $disponible = $lote->cantidad_total - $enviado + $devuelto;
-
-        if ($cantidad > $disponible) {
-            return back()
-                ->withErrors(['numero_fin' => "La cantidad solicitada ($cantidad) supera el stock disponible en bodega ($disponible)."])
-                ->withInput();
-        }
-
-        TrasladoDetalle::create([
-            'traslado_id'   => $traslado->id,
-            'lote_id'       => $lote->id,
-            'numero_inicio' => $inicio,
-            'numero_fin'    => $fin,
-            'cantidad'      => $cantidad,
-        ]);
+            // El origen debia tener esos documentos a la fecha del traslado y el destino no tenerlos ya
+            Inventario::asegurar([[$traslado->origen_distrito_id, $lote->id], [$traslado->distrito_id, $lote->id]]);
+        });
 
         return redirect()->route('admin.especies.bodega.traslado.show', $traslado)
             ->with('success_detalle', 'Detalle agregado correctamente.');
-    }
-
-    private function storeDetalleDesdeDistrito(Request $request, Traslado $traslado, Lote $lote, int $inicio, int $fin, int $cantidad)
-    {
-        $origenId = $traslado->origen_distrito_id;
-
-        // El rango debe haber sido recibido en el distrito origen (puede venir de varios traslados parciales)
-        $recibidos = TrasladoDetalle::where('lote_id', $lote->id)
-            ->whereHas('traslado', fn($q) =>
-                $q->whereIn('tipo', ['bodega_distrito', 'distrito_distrito'])
-                  ->where('distrito_id', $origenId)
-            )
-            ->where('numero_inicio', '<=', $fin)
-            ->where('numero_fin', '>=', $inicio)
-            ->orderBy('numero_inicio')
-            ->get(['numero_inicio', 'numero_fin']);
-
-        if (!$this->rangoCubiertoPor($recibidos, $inicio, $fin)) {
-            return back()
-                ->withErrors(['numero_inicio' => 'El rango no fue trasladado a este distrito o no está disponible.'])
-                ->withInput();
-        }
-
-        // No debe haber sido ya devuelto o transferido desde el origen
-        $yaTransferido = TrasladoDetalle::where('lote_id', $lote->id)
-            ->whereHas('traslado', fn($q) =>
-                $q->whereIn('tipo', ['distrito_bodega', 'distrito_distrito'])
-                  ->where('origen_distrito_id', $origenId)
-            )
-            ->where('numero_inicio', '<=', $fin)
-            ->where('numero_fin', '>=', $inicio)
-            ->exists();
-
-        if ($yaTransferido) {
-            return back()
-                ->withErrors(['numero_inicio' => 'Ese rango ya fue devuelto o transferido desde este distrito.'])
-                ->withInput();
-        }
-
-        // No debe haber sido realizado en el distrito origen
-        $realizado = Realizacion::where('tipo_especie_id', $lote->tipo_especie_id)
-            ->where('distrito_id', $origenId)
-            ->where('numero_inicio', '<=', $fin)
-            ->where('numero_fin', '>=', $inicio)
-            ->exists();
-
-        if ($realizado) {
-            return back()
-                ->withErrors(['numero_inicio' => 'Parte de ese rango ya fue realizado (entregado a contribuyente) en el distrito origen.'])
-                ->withInput();
-        }
-
-        TrasladoDetalle::create([
-            'traslado_id'   => $traslado->id,
-            'lote_id'       => $lote->id,
-            'numero_inicio' => $inicio,
-            'numero_fin'    => $fin,
-            'cantidad'      => $cantidad,
-        ]);
-
-        return redirect()->route('admin.especies.bodega.traslado.show', $traslado)
-            ->with('success_detalle', 'Detalle agregado correctamente.');
-    }
-
-    /**
-     * Verifica si [$inicio, $fin] queda cubierto por la union de los rangos dados,
-     * permitiendo que varios detalles parciales sumen la cobertura completa.
-     */
-    private function rangoCubiertoPor($detalles, int $inicio, int $fin): bool
-    {
-        $cubierto = $inicio;
-        foreach ($detalles as $d) {
-            if ($d->numero_inicio > $cubierto) break;
-            $cubierto = max($cubierto, $d->numero_fin + 1);
-            if ($cubierto > $fin) return true;
-        }
-        return $cubierto > $fin;
     }
 
     public function trasladoDetalleDestroy(Traslado $traslado, TrasladoDetalle $detalle)
     {
-        if (\DB::table('nulas')->where('traslado_detalle_id', $detalle->id)->exists()) {
+        abort_if($detalle->traslado_id != $traslado->id, 404);
+
+        if (DB::table('nulas')->where('traslado_detalle_id', $detalle->id)->exists()) {
             return back()->with('error_detalle', 'No se puede eliminar: este detalle tiene anulaciones registradas.');
         }
 
-        $detalle->delete();
+        try {
+            DB::transaction(function () use ($traslado, $detalle) {
+                Inventario::bloquear($detalle->lote->tipo_especie_id);
+                $detalle->delete();
+                Inventario::asegurar([[$traslado->origen_distrito_id, $detalle->lote_id], [$traslado->distrito_id, $detalle->lote_id]]);
+            });
+        } catch (ValidationException $e) {
+            return back()->with('error_detalle', 'No se puede eliminar: sin este detalle, ' . lcfirst(collect($e->errors())->flatten()->first()));
+        }
 
         return redirect()->route('admin.especies.bodega.traslado.show', $traslado)
             ->with('success_detalle', 'Detalle eliminado correctamente.');
@@ -337,105 +256,32 @@ class BodegaController extends Controller
 
     public function ajaxLotesStock(Request $request)
     {
-        $lotes = Lote::where('tipo_especie_id', $request->tipo_especie_id)
-            ->with('denominacion', 'compra', 'rangos')
-            ->get()
-            ->map(function ($lote) {
-                // Descontar enviados y sumar devueltos para el stock real en bodega
-                $enviados   = TrasladoDetalle::where('lote_id', $lote->id)
-                    ->whereHas('traslado', fn($q) => $q->where('tipo', 'bodega_distrito'))->sum('cantidad');
-                $devueltos  = TrasladoDetalle::where('lote_id', $lote->id)
-                    ->whereHas('traslado', fn($q) => $q->where('tipo', 'distrito_bodega'))->sum('cantidad');
-                $disponible = $lote->cantidad_total - $enviados + $devueltos;
-
-                $detalles   = TrasladoDetalle::where('lote_id', $lote->id)
-                    ->whereHas('traslado', fn($q) => $q->where('tipo', 'bodega_distrito'))
-                    ->orderBy('numero_inicio')
-                    ->get(['numero_inicio', 'numero_fin', 'cantidad']);
-
-                return [
-                    'id'            => $lote->id,
-                    'label'         => 'Factura ' . $lote->compra->numero_factura
-                                     . ' — $' . number_format($lote->denominacion->valor, 2)
-                                     . ($lote->serie ? ' — Serie ' . $lote->serie : '')
-                                     . ' — Stock: ' . number_format($disponible),
-                    'disponible'    => $disponible,
-                    'rangos'        => $lote->rangos->map(fn($r) => [
-                        'inicio' => $r->numero_inicio,
-                        'fin'    => $r->numero_fin,
-                    ]),
-                    'rangos_usados' => $detalles->map(fn($d) => [
-                        'inicio' => $d->numero_inicio,
-                        'fin'    => $d->numero_fin,
-                    ]),
-                ];
-            })
-            ->filter(fn($l) => $l['disponible'] > 0)
-            ->values();
-
-        return response()->json($lotes);
+        return response()->json($this->opcionesLotes(
+            Inventario::bodega((int) $request->tipo_especie_id), 'Stock'));
     }
 
     // ── AJAX: stock en un distrito ────────────────────────────────────────────
 
     public function ajaxLotesDistritoStock(Request $request)
     {
-        $distritoId = (int) $request->distrito_id;
-        $tipoId     = (int) $request->tipo_especie_id;
+        return response()->json($this->opcionesLotes(
+            Inventario::distrito((int) $request->distrito_id, (int) $request->tipo_especie_id), 'Disponible'));
+    }
 
-        // Rangos que llegaron a este distrito (bodega→distrito o distrito→distrito entrante)
-        $recibidos = TrasladoDetalle::whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipoId))
-            ->whereHas('traslado', fn($q) =>
-                $q->whereIn('tipo', ['bodega_distrito', 'distrito_distrito'])
-                  ->where('distrito_id', $distritoId)
-            )
-            ->with('lote.compra', 'lote.denominacion', 'lote.rangos')
-            ->get();
-
-        // Cantidades ya enviadas de vuelta desde este distrito
-        $yaEnviados = TrasladoDetalle::whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipoId))
-            ->whereHas('traslado', fn($q) =>
-                $q->whereIn('tipo', ['distrito_bodega', 'distrito_distrito'])
-                  ->where('origen_distrito_id', $distritoId)
-            )
-            ->selectRaw('lote_id, SUM(cantidad) as total')
-            ->groupBy('lote_id')
-            ->pluck('total', 'lote_id');
-
-        $lotes = $recibidos->groupBy('lote_id')->map(function ($rows) use ($yaEnviados, $distritoId) {
-            $lote       = $rows->first()->lote;
-            $recibido   = $rows->sum('cantidad');
-            $disponible = $recibido - $yaEnviados->get($lote->id, 0);
-
-            // Rangos recibidos en el distrito
-            $rangosRecibidos = $rows->map(fn($d) => [
-                'inicio' => $d->numero_inicio,
-                'fin'    => $d->numero_fin,
-            ])->values();
-
-            // Rangos ya enviados de vuelta (usados)
-            $rangosUsados = TrasladoDetalle::where('lote_id', $lote->id)
-                ->whereHas('traslado', fn($q) =>
-                    $q->whereIn('tipo', ['distrito_bodega', 'distrito_distrito'])
-                      ->where('origen_distrito_id', $distritoId)
-                )
-                ->get(['numero_inicio', 'numero_fin'])
-                ->map(fn($d) => ['inicio' => $d->numero_inicio, 'fin' => $d->numero_fin])
-                ->values();
-
-            return [
-                'id'            => $lote->id,
-                'label'         => 'Factura ' . ($lote->compra->numero_factura ?? '—')
-                                 . ' — $' . number_format($lote->denominacion->valor ?? 0, 2)
-                                 . ($lote->serie ? ' — Serie ' . $lote->serie : '')
-                                 . ' — Disponible: ' . number_format($disponible),
-                'disponible'    => $disponible,
-                'rangos'        => $rangosRecibidos,
-                'rangos_usados' => $rangosUsados,
-            ];
-        })->filter(fn($l) => $l['disponible'] > 0)->values();
-
-        return response()->json($lotes);
+    // Lotes con existencia para el selector del detalle, con los rangos que realmente quedan
+    private function opcionesLotes($existencias, string $rotulo)
+    {
+        return $existencias->filter(fn($r) => $r['cantidad'] > 0)
+            ->map(fn($r) => [
+                'id'         => $r['lote']->id,
+                'label'      => 'Factura ' . ($r['lote']->compra->numero_factura ?? '—')
+                              . ' — $' . number_format($r['valor'], 2)
+                              . ($r['lote']->serie ? ' — Serie ' . $r['lote']->serie : '')
+                              . " — {$rotulo}: " . number_format($r['cantidad']),
+                'disponible' => $r['cantidad'],
+                'rangos'     => array_map(fn($i) => ['inicio' => $i[0], 'fin' => $i[1]], $r['intervalos']),
+            ])
+            ->values();
     }
 
     // ── Stock disponible en bodega ────────────────────────────────────────────
@@ -445,19 +291,11 @@ class BodegaController extends Controller
         $tipos      = TipoEspecie::where('activo', true)->orderBy('nombre')->get();
         $tipoFiltro = $request->tipo_especie_id;
 
-        $lotes = Lote::with('tipoEspecie', 'denominacion', 'compra', 'rangos')
-            ->when($tipoFiltro, fn($q) => $q->where('tipo_especie_id', $tipoFiltro))
-            ->orderBy('tipo_especie_id')
-            ->orderBy('id')
-            ->get()
-            ->map(function ($lote) {
-                $enviado  = TrasladoDetalle::where('lote_id', $lote->id)
-                    ->whereHas('traslado', fn($q) => $q->where('tipo', 'bodega_distrito'))->sum('cantidad');
-                $devuelto = TrasladoDetalle::where('lote_id', $lote->id)
-                    ->whereHas('traslado', fn($q) => $q->where('tipo', 'distrito_bodega'))->sum('cantidad');
-
-                $lote->stock_trasladado = $enviado - $devuelto;
-                $lote->stock_disponible = $lote->cantidad_total - $lote->stock_trasladado;
+        $lotes = Inventario::bodega($tipoFiltro ? (int) $tipoFiltro : null)
+            ->map(function ($r) {
+                $lote = $r['lote'];
+                $lote->stock_trasladado = $r['enviado'] - $r['devuelto'];
+                $lote->stock_disponible = $r['cantidad'];
                 return $lote;
             })
             ->filter(fn($l) => $l->cantidad_total > 0);

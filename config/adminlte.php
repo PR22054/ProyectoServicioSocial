@@ -344,6 +344,7 @@ return [
             'submenu' => [
                 ['text' => 'Tipos de Especie', 'url' => 'admin/especies/configuracion/tipos',          'icon' => 'fas fa-fw fa-tags',        'can' => 'shared-access'],
                 ['text' => 'Denominaciones',   'url' => 'admin/especies/configuracion/denominaciones', 'icon' => 'fas fa-fw fa-dollar-sign', 'can' => 'shared-access'],
+                ['text' => 'Distritos',        'url' => 'admin/especies/configuracion/distritos',      'icon' => 'fas fa-fw fa-map-marker-alt', 'can' => 'shared-access'],
             ],
         ],
         [

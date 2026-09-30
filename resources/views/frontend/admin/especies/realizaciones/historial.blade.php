@@ -37,10 +37,10 @@
 
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h3 class="card-title mb-0">Realizaciones ({{ $realizaciones->count() }})</h3>
-            @if($realizaciones->count() > 0)
+            <h3 class="card-title mb-0">Realizaciones ({{ $realizaciones->total() }})</h3>
+            @if($realizaciones->total() > 0)
                 <span class="badge badge-success" style="font-size:.9rem">
-                    Total cobrado: ${{ number_format($realizaciones->sum('monto_cobrado'), 2) }}
+                    Total cobrado: ${{ number_format($totalCobrado, 2) }}
                 </span>
             @endif
         </div>
@@ -53,6 +53,7 @@
                         <th>Distrito</th>
                         <th>Tipo de especie</th>
                         <th>Denominación</th>
+                        <th class="text-center">Serie</th>
                         <th class="text-center">Rango realizado</th>
                         <th class="text-right">Cantidad</th>
                         <th class="text-right">Monto cobrado</th>
@@ -64,11 +65,12 @@
                 <tbody>
                     @forelse($realizaciones as $r)
                     <tr>
-                        <td>{{ $loop->iteration }}</td>
+                        <td>{{ $realizaciones->firstItem() + $loop->index }}</td>
                         <td>{{ $r->fecha->format('d/m/Y') }}</td>
                         <td>{{ $r->distrito->nombre ?? '—' }}</td>
                         <td>{{ $r->tipoEspecie->nombre ?? '—' }}</td>
                         <td>${{ number_format($r->denominacion->valor ?? 0, 2) }}</td>
+                        <td class="text-center">{{ $r->serie ?? '—' }}</td>
                         <td class="text-center">
                             <span class="badge badge-primary">
                                 {{ number_format($r->numero_inicio) }} – {{ number_format($r->numero_fin) }}
@@ -100,12 +102,15 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="11" class="text-center text-muted py-3">Sin realizaciones registradas</td>
+                        <td colspan="12" class="text-center text-muted py-3">Sin realizaciones registradas</td>
                     </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+        @if($realizaciones->hasPages())
+            <div class="card-footer">{{ $realizaciones->links() }}</div>
+        @endif
     </div>
 
 @stop

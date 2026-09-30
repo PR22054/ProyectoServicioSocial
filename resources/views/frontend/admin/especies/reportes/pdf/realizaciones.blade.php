@@ -18,6 +18,7 @@
       <th>#</th>
       <th>Fecha</th>
       <th>Denominación</th>
+      <th class="center">Serie</th>
       <th class="center">Del</th>
       <th class="center">Al</th>
       <th class="right">Cantidad</th>
@@ -32,6 +33,7 @@
       <td class="center">{{ $i + 1 }}</td>
       <td class="center">{{ $r->fecha->format('d/m/Y') }}</td>
       <td class="center">${{ number_format($r->denominacion->valor ?? 0, 2) }}</td>
+      <td class="center">{{ $r->serie ?: '—' }}</td>
       <td class="right">{{ number_format($r->numero_inicio) }}</td>
       <td class="right">{{ number_format($r->numero_fin) }}</td>
       <td class="right">{{ number_format($r->cantidad) }}</td>
@@ -43,7 +45,7 @@
   </tbody>
   <tfoot>
     <tr>
-      <td colspan="5" class="right">TOTAL:</td>
+      <td colspan="6" class="right">TOTAL:</td>
       <td class="right">{{ number_format($realizaciones->sum('cantidad')) }}</td>
       <td class="right">${{ number_format($realizaciones->sum('monto_cobrado'), 2) }}</td>
       <td colspan="2"></td>

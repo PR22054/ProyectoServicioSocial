@@ -13,6 +13,13 @@
         </div>
     @endif
 
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible">
+            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            {{ session('error') }}
+        </div>
+    @endif
+
     <div class="card">
         <div class="card-header">
             <a href="{{ route('admin.usuarios.create') }}" class="btn btn-success btn-sm">

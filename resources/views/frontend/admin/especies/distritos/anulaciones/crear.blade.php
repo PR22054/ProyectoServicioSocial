@@ -72,6 +72,8 @@
                     <span id="detalleRango"></span>
                     <br><strong>Disponible para anular:</strong>
                     <span id="detalleDisp"></span>
+                    <br><strong>Rangos que siguen en el distrito:</strong>
+                    <span id="detalleRangos"></span>
                     <span id="yaAnuladosRow" style="display:none">
                         <br><strong>Ya anulados:</strong> <span id="yaAnuladosList"></span>
                     </span>
@@ -110,7 +112,7 @@
                             <label>Fecha <span class="text-danger">*</span></label>
                             <input type="date" name="fecha"
                                    class="form-control @error('fecha') is-invalid @enderror"
-                                   value="{{ old('fecha', date('Y-m-d')) }}" required>
+                                   value="{{ old('fecha', date('Y-m-d')) }}" max="{{ date('Y-m-d') }}" required>
                             @error('fecha')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
@@ -154,6 +156,10 @@ function mostrarInfoDetalle() {
         Number(sel.dataset.inicio).toLocaleString() + ' – ' + Number(sel.dataset.fin).toLocaleString();
     document.getElementById('detalleDisp').textContent =
         Number(sel.dataset.disponible).toLocaleString();
+    document.getElementById('detalleRangos').textContent =
+        JSON.parse(sel.dataset.rangos || '[]')
+            .map(r => r.inicio === r.fin ? r.inicio.toLocaleString() : r.inicio.toLocaleString() + ' – ' + r.fin.toLocaleString())
+            .join(' | ');
 
     const yaRow = document.getElementById('yaAnuladosRow');
     if (yaAnulados.length > 0) {
@@ -192,6 +198,7 @@ function cargarDetalles(restoreDetalleId) {
                     opt.dataset.inicio      = item.inicio;
                     opt.dataset.fin         = item.fin;
                     opt.dataset.disponible  = item.disponible;
+                    opt.dataset.rangos      = JSON.stringify(item.rangos);
                     opt.dataset.yaAnulados  = JSON.stringify(item.ya_anulados);
                     detalleEl.appendChild(opt);
                 });

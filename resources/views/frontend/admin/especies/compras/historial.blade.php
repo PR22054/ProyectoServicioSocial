@@ -19,7 +19,7 @@
     {{-- LISTADO DE COMPRAS CON OPCIONES DE VER, EDITAR Y ELIMINAR --}}
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">Compras registradas ({{ $compras->count() }})</h3>
+            <h3 class="card-title">Compras registradas ({{ $compras->total() }})</h3>
             <div class="card-tools">
                 <a href="{{ route('admin.especies.compras.crear') }}" class="btn btn-sm btn-primary">
                     Registrar compra
@@ -55,13 +55,10 @@
                                class="btn btn-xs btn-info">
                                 <i class="fas fa-eye"></i>
                             </a>
+                            {{-- Js::from escapa saltos de linea y comillas; addslashes rompia el boton con observaciones de varias lineas --}}
                             <button type="button" class="btn btn-xs btn-warning"
-                                    onclick="abrirEditCompra(
-                                        {{ $compra->id }},
-                                        '{{ addslashes($compra->numero_factura) }}',
-                                        '{{ $compra->fecha->format('Y-m-d') }}',
-                                        '{{ addslashes($compra->observaciones ?? '') }}'
-                                    )">
+                                    onclick="abrirEditCompra({{ $compra->id }}, {{ Js::from($compra->numero_factura) }},
+                                        {{ Js::from($compra->fecha->format('Y-m-d')) }}, {{ Js::from($compra->observaciones ?? '') }})">
                                 <i class="fas fa-edit"></i>
                             </button>
                             <form method="POST"
@@ -88,6 +85,9 @@
                 </tbody>
             </table>
         </div>
+        @if($compras->hasPages())
+            <div class="card-footer">{{ $compras->links() }}</div>
+        @endif
     </div>
 
     {{-- modal de edición --}}
@@ -96,6 +96,8 @@
             <div class="modal-content">
                 <form method="POST" id="formEditCompra">
                     @csrf @method('PATCH')
+                    {{-- permite reabrir el modal sobre la misma compra si la validacion falla --}}
+                    <input type="hidden" name="_editar_id" id="edit_id">
                     <div class="modal-header">
                         <h5 class="modal-title">Editar compra</h5>
                         <button type="button" class="close" data-dismiss="modal">&times;</button>
@@ -113,11 +115,11 @@
                         <div class="form-group">
                             <label>N° Factura <span class="text-danger">*</span></label>
                             <input type="text" name="numero_factura" id="edit_numero_factura"
-                                   class="form-control" maxlength="100" required>
+                                   class="form-control" maxlength="50" required>
                         </div>
                         <div class="form-group">
                             <label>Fecha <span class="text-danger">*</span></label>
-                            <input type="date" name="fecha" id="edit_fecha" class="form-control" required>
+                            <input type="date" name="fecha" id="edit_fecha" class="form-control" max="{{ date('Y-m-d') }}" required>
                         </div>
                         <div class="form-group">
                             <label>Observaciones <small class="text-muted">(opcional)</small></label>
@@ -139,6 +141,7 @@
 @push('js')
 <script>
 function abrirEditCompra(id, factura, fecha, observaciones) {
+    document.getElementById('edit_id').value              = id;
     document.getElementById('edit_numero_factura').value  = factura;
     document.getElementById('edit_fecha').value           = fecha;
     document.getElementById('edit_observaciones').value   = observaciones;
@@ -146,5 +149,12 @@ function abrirEditCompra(id, factura, fecha, observaciones) {
         '{{ url("admin/especies/compras") }}/' + id;
     $('#modalEditCompra').modal('show');
 }
+
+@if($errors->any() && old('_editar_id'))
+// La edicion fallo: reabrir el modal con lo que se escribio para que se vea el error
+document.addEventListener('DOMContentLoaded', () => abrirEditCompra(
+    {{ Js::from(old('_editar_id')) }}, {{ Js::from(old('numero_factura')) }},
+    {{ Js::from(old('fecha')) }}, {{ Js::from(old('observaciones') ?? '') }}));
+@endif
 </script>
 @endpush

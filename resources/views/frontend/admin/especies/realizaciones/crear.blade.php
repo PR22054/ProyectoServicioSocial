@@ -61,17 +61,18 @@
 
                 {{-- info de stock disponible --}}
                 <div id="stockInfo" class="alert alert-info py-2" style="display:none">
-                    <div class="row">
-                        <div class="col-sm-3"><strong>Recibido:</strong> <span id="stockRecibido">—</span></div>
-                        <div class="col-sm-3"><strong>Anulado:</strong> <span id="stockAnulado">—</span></div>
-                        <div class="col-sm-3"><strong>Realizado:</strong> <span id="stockRealizado">—</span></div>
-                        <div class="col-sm-3"><strong>Disponible:</strong> <span id="stockDisp" class="font-weight-bold">—</span></div>
+                    <div class="d-flex flex-wrap" style="gap:1.5rem">
+                        <span><strong>Recibido:</strong> <span id="stockRecibido">—</span></span>
+                        <span><strong>Salidas:</strong> <span id="stockSalido">—</span></span>
+                        <span><strong>Anulado:</strong> <span id="stockAnulado">—</span></span>
+                        <span><strong>Realizado:</strong> <span id="stockRealizado">—</span></span>
+                        <span><strong>Disponible:</strong> <span id="stockDisp" class="font-weight-bold">—</span></span>
                     </div>
-                    <div class="mt-1"><strong>Rangos recibidos:</strong> <span id="stockRangos">—</span></div>
+                    <div class="mt-1"><strong>Rangos disponibles de la serie elegida:</strong> <span id="stockRangos">—</span></div>
                 </div>
 
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="form-group">
                             <label>Denominación <span class="text-danger">*</span></label>
                             <select name="denominacion_id" id="denominacion_id"
@@ -81,12 +82,22 @@
                             @error('denominacion_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label>Serie <span class="text-danger">*</span></label>
+                            <select name="serie" id="serie"
+                                    class="form-control @error('serie') is-invalid @enderror" disabled>
+                                <option value="">— Seleccione denominación —</option>
+                            </select>
+                            @error('serie')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                    </div>
+                    <div class="col-md-4">
                         <div class="form-group">
                             <label>Fecha <span class="text-danger">*</span></label>
                             <input type="date" name="fecha"
                                    class="form-control @error('fecha') is-invalid @enderror"
-                                   value="{{ old('fecha', date('Y-m-d')) }}" required>
+                                   value="{{ old('fecha', date('Y-m-d')) }}" max="{{ date('Y-m-d') }}" required>
                             @error('fecha')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
@@ -141,19 +152,22 @@
 @push('js')
 <script>
 const ajaxUrl = '{{ route("admin.especies.ajax.realizacion-info") }}';
+const denomEl = document.getElementById('denominacion_id');
+const serieEl = document.getElementById('serie');
+let grupos     = [];
 let valorDenom = 0;
-//CARGA STOCK E INFO DEL DISTRITO+TIPO VIA AJAX Y CALCULA EL MONTO ESTIMADO
+//CARGA LO QUE EL DISTRITO TIENE DEL TIPO, AGRUPADO POR DENOMINACION Y SERIE, Y CALCULA EL MONTO ESTIMADO
 
-function cargarInfo(restoreDenomId) {
-    const distId  = document.getElementById('distrito_id').value;
-    const tipoId  = document.getElementById('tipo_especie_id').value;
-    const infoEl  = document.getElementById('stockInfo');
-    const denomEl = document.getElementById('denominacion_id');
+function cargarInfo(restoreDenom, restoreSerie) {
+    const distId = document.getElementById('distrito_id').value;
+    const tipoId = document.getElementById('tipo_especie_id').value;
+    const infoEl = document.getElementById('stockInfo');
 
     infoEl.style.display = 'none';
     denomEl.innerHTML = '<option value="">Cargando...</option>';
     denomEl.disabled = true;
-    valorDenom = 0;
+    grupos = [];
+    cargarSeries(null);
 
     if (!distId || !tipoId) {
         denomEl.innerHTML = '<option value="">— Seleccione distrito y tipo —</option>';
@@ -163,48 +177,73 @@ function cargarInfo(restoreDenomId) {
     fetch(ajaxUrl + '?distrito_id=' + distId + '&tipo_especie_id=' + tipoId)
         .then(r => r.json())
         .then(data => {
+            grupos = data.grupos;
             document.getElementById('stockRecibido').textContent  = Number(data.recibido).toLocaleString();
+            document.getElementById('stockSalido').textContent    = Number(data.salido).toLocaleString();
             document.getElementById('stockAnulado').textContent   = Number(data.anulado).toLocaleString();
             document.getElementById('stockRealizado').textContent = Number(data.realizado).toLocaleString();
             document.getElementById('stockDisp').textContent      = Number(data.disponible).toLocaleString();
-            document.getElementById('stockRangos').textContent    =
-                data.rangos.map(r => r.inicio.toLocaleString() + '–' + r.fin.toLocaleString()).join(' | ');
             infoEl.style.display = '';
 
-            if (data.denominaciones.length === 0) {
-                denomEl.innerHTML = '<option value="">Sin denominaciones activas</option>';
-            } else {
-                denomEl.innerHTML = '<option value="">— Seleccione —</option>';
-                data.denominaciones.forEach(d => {
-                    const opt = document.createElement('option');
-                    opt.value = d.id;
-                    opt.textContent = '$' + parseFloat(d.valor).toFixed(2);
-                    opt.dataset.valor = d.valor;
-                    denomEl.appendChild(opt);
-                });
-                denomEl.disabled = false;
+            // Solo las denominaciones de las que el distrito tiene documentos
+            const dens = [];
+            grupos.forEach(g => {
+                if (!dens.some(d => d.id === g.denominacion_id)) dens.push({ id: g.denominacion_id, etiqueta: g.etiqueta });
+            });
 
-                // Restaurar selección previa (old()) o auto-seleccionar si hay una sola
-                if (restoreDenomId) {
-                    denomEl.value = restoreDenomId;
-                } else if (data.denominaciones.length === 1) {
-                    denomEl.selectedIndex = 1;
-                }
-                const sel = denomEl.options[denomEl.selectedIndex];
-                valorDenom = sel && sel.dataset.valor ? parseFloat(sel.dataset.valor) : 0;
-                calcMonto();
+            if (dens.length === 0) {
+                denomEl.innerHTML = '<option value="">Sin documentos disponibles</option>';
+                return;
             }
+            denomEl.innerHTML = '<option value="">— Seleccione —</option>';
+            dens.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.textContent = d.etiqueta;
+                denomEl.appendChild(opt);
+            });
+            denomEl.disabled = false;
+
+            if (restoreDenom && dens.some(d => d.id == restoreDenom)) denomEl.value = restoreDenom;
+            else if (dens.length === 1) denomEl.selectedIndex = 1;
+            cargarSeries(restoreSerie);
         });
 }
 
-document.getElementById('distrito_id').addEventListener('change', () => cargarInfo(null));
-document.getElementById('tipo_especie_id').addEventListener('change', () => cargarInfo(null));
+// Una opcion por serie y sin marcador vacio: el valor '' significa "sin serie"
+function cargarSeries(restoreSerie) {
+    const opciones = grupos.filter(g => g.denominacion_id === parseInt(denomEl.value));
+    serieEl.innerHTML = '';
 
-document.getElementById('denominacion_id').addEventListener('change', function () {
-    const sel = this.options[this.selectedIndex];
-    valorDenom = sel.dataset.valor ? parseFloat(sel.dataset.valor) : 0;
+    if (opciones.length === 0) {
+        serieEl.innerHTML = '<option value="">— Seleccione denominación —</option>';
+        serieEl.disabled = true;
+    } else {
+        opciones.forEach(g => {
+            const opt = document.createElement('option');
+            opt.value = g.serie ?? '';
+            opt.textContent = (g.serie ? 'Serie ' + g.serie : 'Sin serie') + ' — ' + g.disponible.toLocaleString() + ' disp.';
+            serieEl.appendChild(opt);
+        });
+        serieEl.disabled = false;
+        if (restoreSerie !== null && opciones.some(g => (g.serie ?? '') === restoreSerie)) serieEl.value = restoreSerie;
+    }
+    mostrarRangos();
+}
+
+function mostrarRangos() {
+    const g = grupos.find(g => g.denominacion_id === parseInt(denomEl.value) && (g.serie ?? '') === serieEl.value);
+    document.getElementById('stockRangos').textContent = g
+        ? g.rangos.map(r => r.inicio === r.fin ? r.inicio.toLocaleString() : r.inicio.toLocaleString() + '–' + r.fin.toLocaleString()).join(' | ')
+        : '—';
+    valorDenom = g ? g.precio_venta : null;   // precio de venta del distrito; null si no se vende
     calcMonto();
-});
+}
+
+document.getElementById('distrito_id').addEventListener('change', () => cargarInfo(null, null));
+document.getElementById('tipo_especie_id').addEventListener('change', () => cargarInfo(null, null));
+denomEl.addEventListener('change', () => cargarSeries(null));
+serieEl.addEventListener('change', mostrarRangos);
 
 function calcMonto() {
     const ini = parseInt(document.getElementById('numero_inicio').value);
@@ -228,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const distId = document.getElementById('distrito_id').value;
     const tipoId = document.getElementById('tipo_especie_id').value;
     if (distId && tipoId) {
-        cargarInfo({{ old('denominacion_id') ?? 'null' }});
+        cargarInfo({{ Js::from(old('denominacion_id')) }}, {{ Js::from(old('denominacion_id') ? (string) old('serie') : null) }});
     }
     calcMonto();
 });

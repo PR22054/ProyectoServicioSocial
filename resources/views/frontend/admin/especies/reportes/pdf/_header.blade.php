@@ -1,4 +1,6 @@
-{{-- ENCABEZADO COMPARTIDO PARA TODOS LOS PDF DE REPORTES - REQUIERE LA VARIABLE $tituloReporte --}}
+{{-- ENCABEZADO COMPARTIDO PARA TODOS LOS PDF DE REPORTES - REQUIERE $tituloReporte.
+     Opcionales: $codigoFormulario, $versionFormulario, $vigenciaFormulario, $encabezadoCaja,
+     $sinRecuadro (sin logo ni codigo) y $sinNit (sin las lineas de alcaldia y NIT) --}}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -22,31 +24,38 @@
                 border-bottom: 1px solid #2B5880; padding-bottom: 2px; color: #2B5880; }
   .badge-ok   { background: #d4edda; color: #155724; padding: 1px 4px; border-radius: 3px; }
   .badge-warn { background: #fff3cd; color: #856404; padding: 1px 4px; border-radius: 3px; }
+  .pie        { margin-top: 10px; font-weight: bold; }
+  .firmas     { width: 100%; margin-top: 45px; text-align: center; font-weight: bold; }
+  .firmas td  { width: 50%; vertical-align: top; }
 </style>
 </head>
 <body>
 
+@unless($sinRecuadro ?? false)
 <table class="ht">
   <tr>
     <td rowspan="3" style="width:28%; text-align:center;">
       <img src="{{ public_path('images/encabezado-constancia.png') }}" style="width:45%; max-height:50px;">
     </td>
     <td rowspan="3" style="width:32%; text-align:center; font-weight:bold; font-size:13px; line-height:1.6;">
-      REPORTE DE<br>{{ strtoupper($tituloReporte) }}
+      @isset($encabezadoCaja){{ $encabezadoCaja }}@else REPORTE DE<br>{{ strtoupper($tituloReporte) }}@endisset
     </td>
     <td style="font-weight:bold;">Código:</td>
-    <td>TESO-001-CONS</td>
+    <td>{{ $codigoFormulario ?? 'TESO-001-CONS' }}</td>
   </tr>
   <tr>
     <td style="font-weight:bold;">Versión:</td>
-    <td>001</td>
+    <td>{{ $versionFormulario ?? '001' }}</td>
   </tr>
   <tr>
     <td style="font-weight:bold;">Fecha de<br>vigencia:</td>
-    <td>11/11/2025</td>
+    <td>{{ $vigenciaFormulario ?? '11/11/2025' }}</td>
   </tr>
 </table>
+@endunless
 
+@unless($sinNit ?? false)
 <p class="titulo">ALCALDIA MUNICIPAL DE SANTA ANA NORTE</p>
 <p class="titulo">NIT: 0214-010524-101-5</p>
 <br>
+@endunless

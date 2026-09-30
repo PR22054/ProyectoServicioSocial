@@ -11,6 +11,7 @@ use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\Especies\BodegaController;
 use App\Http\Controllers\Especies\CompraController as EspecieCompraController;
 use App\Http\Controllers\Especies\ConfiguracionController;
+use App\Http\Controllers\Especies\DistritoConfigController;
 use App\Http\Controllers\Especies\DistritoController as EspecieDistritoController;
 use App\Http\Controllers\Especies\RealizacionController as EspecieRealizacionController;
 use App\Http\Controllers\Especies\ReporteController as EspecieReporteController;
@@ -36,6 +37,7 @@ Route::get('retencion', [RetencionController::class, 'index'])
     ->name('retencion');
 
 Route::post('retencion/buscar', [RetencionController::class, 'buscar'])
+    ->middleware('throttle:retencion')
     ->name('retencion.buscar');
 
 Route::get('retencion/pdf/{token}', [RetencionController::class, 'verPdf'])
@@ -71,6 +73,17 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
         Route::post('configuracion/denominaciones',              [ConfiguracionController::class, 'storeDenominacion'])->name('configuracion.denominaciones.store');
         Route::patch('configuracion/denominaciones/{denominacion}', [ConfiguracionController::class, 'updateDenominacion'])->name('configuracion.denominaciones.update');
         Route::delete('configuracion/denominaciones/{denominacion}',[ConfiguracionController::class, 'destroyDenominacion'])->name('configuracion.denominaciones.destroy');
+
+        Route::get('configuracion/distritos',                            [DistritoConfigController::class, 'index'])->name('configuracion.distritos');
+        Route::patch('configuracion/distritos/{distrito}',               [DistritoConfigController::class, 'update'])->name('configuracion.distritos.update');
+        Route::post('configuracion/distritos/{distrito}/tipos',          [DistritoConfigController::class, 'guardarTipo'])->name('configuracion.distritos.tipos');
+        Route::delete('configuracion/distritos/tipos/{config}',          [DistritoConfigController::class, 'quitarTipo'])->name('configuracion.distritos.tipos.destroy');
+        Route::post('configuracion/distritos/{distrito}/tarifas',        [DistritoConfigController::class, 'guardarTarifa'])->name('configuracion.distritos.tarifas');
+        Route::delete('configuracion/distritos/tarifas/{tarifa}',        [DistritoConfigController::class, 'quitarTarifa'])->name('configuracion.distritos.tarifas.destroy');
+        Route::post('configuracion/distritos/{distrito}/cajas',          [DistritoConfigController::class, 'guardarCaja'])->name('configuracion.distritos.cajas');
+        Route::delete('configuracion/distritos/cajas/{ubicacion}',       [DistritoConfigController::class, 'quitarCaja'])->name('configuracion.distritos.cajas.destroy');
+        Route::post('configuracion/distritos/{distrito}/asignaciones',   [DistritoConfigController::class, 'asignar'])->name('configuracion.distritos.asignaciones');
+        Route::delete('configuracion/distritos/asignaciones/{rango}',    [DistritoConfigController::class, 'quitarAsignacion'])->name('configuracion.distritos.asignaciones.destroy');
 
         Route::get('ajax/denominaciones',              [ConfiguracionController::class,      'ajaxDenominaciones'])->name('ajax.denominaciones');
 

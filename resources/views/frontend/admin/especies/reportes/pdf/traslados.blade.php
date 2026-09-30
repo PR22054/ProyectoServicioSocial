@@ -1,5 +1,8 @@
-{{-- PDF: HISTORIAL DE TRASLADOS - TABLA DE DETALLES DE TRASLADO EN EL PERIODO --}}
-@php $tituloReporte = 'Historial de Traslados'; @endphp
+{{-- PDF: HISTORIAL DE TRASLADOS - ENTRADAS Y SALIDAS DEL DISTRITO EN EL PERIODO --}}
+@php
+  $tituloReporte = 'Historial de Traslados';
+  $esEntrada = fn($d) => $d->traslado->distrito_id == $distrito->id;
+@endphp
 @include('frontend.admin.especies.reportes.pdf._header')
 
 <p class="label">
@@ -18,6 +21,7 @@
       <th>#</th>
       <th>Traslado</th>
       <th>Fecha traslado</th>
+      <th>Movimiento</th>
       <th>Factura</th>
       <th>Serie</th>
       <th class="center">Del</th>
@@ -31,6 +35,13 @@
       <td class="center">{{ $i + 1 }}</td>
       <td class="center">#{{ $d->traslado_id }}</td>
       <td class="center">{{ $d->traslado->fecha->format('d/m/Y') }}</td>
+      <td>
+        @if($esEntrada($d))
+          Entrada desde {{ $d->traslado->origenDistrito->nombre ?? 'Bodega' }}
+        @else
+          Salida a {{ $d->traslado->distrito->nombre ?? 'Bodega' }}
+        @endif
+      </td>
       <td>{{ $d->lote->compra->numero_factura ?? '—' }}</td>
       <td class="center">{{ $d->lote->serie ?: '—' }}</td>
       <td class="right">{{ number_format($d->numero_inicio) }}</td>
@@ -41,8 +52,12 @@
   </tbody>
   <tfoot>
     <tr>
-      <td colspan="7" class="right">TOTAL TRASLADADO:</td>
-      <td class="right">{{ number_format($detalles->sum('cantidad')) }}</td>
+      <td colspan="8" class="right">TOTAL RECIBIDO:</td>
+      <td class="right">{{ number_format($detalles->filter($esEntrada)->sum('cantidad')) }}</td>
+    </tr>
+    <tr>
+      <td colspan="8" class="right">TOTAL ENVIADO:</td>
+      <td class="right">{{ number_format($detalles->reject($esEntrada)->sum('cantidad')) }}</td>
     </tr>
   </tfoot>
 </table>

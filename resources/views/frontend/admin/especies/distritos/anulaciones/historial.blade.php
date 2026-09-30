@@ -34,7 +34,7 @@
 
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">Anulaciones registradas ({{ $nulas->count() }})</h3>
+            <h3 class="card-title">Anulaciones registradas ({{ $nulas->total() }})</h3>
         </div>
         <div class="card-body p-0">
             <table class="table table-striped table-sm mb-0">
@@ -56,7 +56,7 @@
                 <tbody>
                     @forelse($nulas as $nula)
                     <tr>
-                        <td>{{ $loop->iteration }}</td>
+                        <td>{{ $nulas->firstItem() + $loop->index }}</td>
                         <td>{{ $nula->fecha->format('d/m/Y') }}</td>
                         <td>{{ $nula->distrito->nombre ?? '—' }}</td>
                         <td>{{ $nula->trasladoDetalle->lote->tipoEspecie->nombre ?? '—' }}</td>
@@ -92,6 +92,9 @@
                 </tbody>
             </table>
         </div>
+        @if($nulas->hasPages())
+            <div class="card-footer">{{ $nulas->links() }}</div>
+        @endif
     </div>
 
 @stop

@@ -1,209 +1,114 @@
-{{-- PDF: LIBRO DE ESPECIES MUNICIPALES - mayor mensual valuado, con rangos y serie --}}
-@php $tituloReporte = 'Libro de Especies Municipales'; @endphp
+{{-- PDF: LIBRO DE ESPECIES MUNICIPALES (TESO-008) - mismas secciones, rotulos y columnas que el libro de Tesoreria.
+     Los montos van en EXISTENCIA (los traslados enviados en REALIZACION); el total de cada seccion en SALDO y las
+     realizaciones repiten su total en REALIZACION en la primera fila. Las nulas se descuentan aparte salvo en los
+     libros que las suman a las realizaciones. Los tipos que se llevan en unidades no tienen columna VALOR. --}}
+@php
+  $tituloReporte      = 'Libro de Especies Municipales';
+  $codigoFormulario   = config('especies.libro.codigo');
+  $versionFormulario  = config('especies.libro.version');
+  $vigenciaFormulario = config('especies.libro.vigencia');
+  $encabezadoCaja     = 'FORMULARIO LIBRO DE ESPECIES MUNICIPALES';
+  $sinNit             = true;
+
+  $columnas = $unidades ? 4 : 5;
+  $num      = fn($v) => $unidades ? number_format($v) : number_format($v, 2);
+  $fecha    = fn($f) => $f ? $f->format('d/m/Y') : '';
+@endphp
 @include('frontend.admin.especies.reportes.pdf._header')
 
-@php
-  $valorNula   = fn($n) => (float) ($n->trasladoDetalle->lote->denominacion->valor ?? 0);
-  $cantNula    = fn($n) => $n->numero_fin - $n->numero_inicio + 1;
-
-  $trasCant    = $trasladosMes->sum('cantidad');
-  $trasMonto   = $trasladosMes->sum(fn($d) => $d->cantidad * (float) ($d->lote->denominacion->valor ?? 0));
-  $salCant     = $salidasMes->sum('cantidad');
-  $salMonto    = $salidasMes->sum(fn($d) => $d->cantidad * (float) ($d->lote->denominacion->valor ?? 0));
-  $realCant    = $realizacionesMes->sum('cantidad');
-  $realMonto   = $realizacionesMes->sum('monto_cobrado');
-  $nulaCant    = $nulasMes->sum($cantNula);
-  $nulaMonto   = $nulasMes->sum(fn($n) => $cantNula($n) * $valorNula($n));
-
-  $primerDia   = sprintf('01/%02d/%d', $mes, $anio);
-  $ultimoDia   = \Carbon\Carbon::create($anio, $mes, 1)->endOfMonth()->format('d/m/Y');
-@endphp
-
-<p class="label">
-  {{ strtoupper($tipo->nombre) }}
-  &nbsp;|&nbsp; Distrito: {{ $distrito->nombre }} ({{ $distrito->codigo }})
-  &nbsp;|&nbsp; {{ strtoupper($nombreMes) }} {{ $anio }}
-  @if($denomFiltro) &nbsp;|&nbsp; Denominación: ${{ number_format($denomFiltro->valor, 2) }} @endif
-</p>
-<br>
+<p class="titulo">UNIDAD DE TESORERÍA</p>
+<p class="titulo">LIBRO DE ESPECIES MUNICIPALES</p>
+<p class="titulo">ALCALDIA MUNICIPAL DE SANTA ANA NORTE</p>
+<p class="titulo">{{ $titulo }}</p>
+<p class="titulo">{{ mb_strtoupper($nombreMes) }} {{ $anio }}</p>
+<p class="titulo">{{ $distrito->nombre_reporte }}</p>
+@if($denomFiltro)
+  <p class="center sub">Solo la denominación {{ $denomFiltro->etiqueta }}</p>
+@endif
 
 <table class="datos">
   <thead>
     <tr>
-      <th style="width:11%">FECHA</th>
-      <th class="right" style="width:9%">CANTIDAD</th>
-      <th class="right" style="width:8%">VALOR</th>
-      <th class="right" style="width:11%">DEL</th>
-      <th class="right" style="width:11%">AL</th>
-      <th class="center" style="width:7%">SERIE</th>
-      <th class="right" style="width:14%">EXISTENCIA</th>
-      <th class="right" style="width:14%">REALIZACION</th>
-      <th class="right" style="width:14%">SALDO</th>
+      <th style="width:12%">FECHA</th>
+      <th colspan="{{ $columnas }}">CONCEPTO</th>
+      <th class="right" style="width:13%">EXISTENCIA</th>
+      <th class="right" style="width:13%">REALIZACION</th>
+      <th class="right" style="width:13%">SALDO</th>
     </tr>
   </thead>
   <tbody>
-
-    {{-- SALDO ANTERIOR --}}
-    <tr>
-      <td>{{ $primerDia }}</td>
-      <td colspan="5"><strong>SALDO ANTERIOR</strong></td>
-      <td class="right">{{ number_format($saldoInicioMonto, 2) }}</td>
-      <td></td>
-      <td class="right"><strong>{{ number_format($saldoInicioMonto, 2) }}</strong></td>
-    </tr>
-    @foreach($saldoInicioDet as $row)
-      @foreach($row['intervalos'] as $k => $iv)
+  @foreach($secciones as $s)
+    @if($s['tipo'] === 'nulas' && $s['filas'])
+      {{-- el libro asienta las nulas con el rotulo en la primera fila y los totales a la par --}}
+      @foreach($s['filas'] as $k => $r)
       <tr>
-        <td></td>
-        <td class="right">{{ number_format($iv[1] - $iv[0] + 1) }}</td>
-        <td class="right">{{ number_format($row['valor'], 2) }}</td>
-        <td class="right">{{ number_format($iv[0]) }}</td>
-        <td class="right">{{ number_format($iv[1]) }}</td>
-        <td class="center">{{ $row['lote']->serie ?: '—' }}</td>
-        <td class="right">{{ number_format(($iv[1] - $iv[0] + 1) * $row['valor'], 2) }}</td>
-        <td></td>
-        <td></td>
+        <td>{{ $k === 0 ? 'NULAS' : ($r['caja'] ?? '') }}</td>
+        <td class="right">{{ number_format($r['cantidad']) }}</td>
+        @unless($unidades)<td class="right">{{ number_format($r['valor'], 2) }}</td>@endunless
+        <td class="right">{{ number_format($r['del']) }}</td>
+        <td class="right">{{ number_format($r['al']) }}</td>
+        <td class="center">{{ $r['serie'] ? '"' . $r['serie'] . '"' : '-' }}</td>
+        <td class="right">{{ $num($r['monto']) }}</td>
+        <td class="right">{{ $k === 0 ? $num($s['total']) : '' }}</td>
+        <td class="right">{{ $k === 0 && !$nulasJuntas ? $num($s['total']) : '' }}</td>
       </tr>
       @endforeach
-    @endforeach
+      @continue
+    @endif
 
-    {{-- COMPRAS: en un distrito las especies entran por traslado, no por factura directa --}}
     <tr>
-      <td></td>
-      <td colspan="5"><strong>POR COMPRA AL M.H. FACTURA N°</strong></td>
-      <td></td>
-      <td></td>
-      <td class="right">0.00</td>
+      <td>{{ $fecha($s['fecha']) }}</td>
+      <td colspan="{{ $columnas }}"><strong>{{ $s['concepto'] }}</strong>@if($s['factura']) {{ $s['factura'] }}@endif</td>
+      <td class="right">{{ (in_array($s['tipo'], ['compra', 'entrada']) && $s['filas']) || $s['tipo'] === 'final' ? $num($s['total']) : '' }}</td>
+      <td class="right">{{ $s['tipo'] === 'salida' && $s['filas'] ? $num($s['total']) : '' }}</td>
+      <td class="right"><strong>{{ $num($s['total']) }}</strong></td>
     </tr>
 
-    {{-- TRASLADOS RECIBIDOS --}}
+    @if($s['tipo'] === 'inicio')
     <tr>
       <td></td>
-      <td colspan="5"><strong>POR TRASLADOS RECIBIDOS</strong></td>
-      <td class="right">{{ number_format($trasMonto, 2) }}</td>
-      <td></td>
-      <td class="right"><strong>{{ number_format($trasMonto, 2) }}</strong></td>
-    </tr>
-    @foreach($trasladosMes as $d)
-    <tr>
-      <td>{{ $d->traslado->fecha->format('d/m/Y') }}</td>
-      <td class="right">{{ number_format($d->cantidad) }}</td>
-      <td class="right">{{ number_format($d->lote->denominacion->valor ?? 0, 2) }}</td>
-      <td class="right">{{ number_format($d->numero_inicio) }}</td>
-      <td class="right">{{ number_format($d->numero_fin) }}</td>
-      <td class="center">{{ $d->lote->serie ?: '—' }}</td>
-      <td class="right">{{ number_format($d->cantidad * (float) ($d->lote->denominacion->valor ?? 0), 2) }}</td>
+      <td class="center"><strong>CANTIDAD</strong></td>
+      @unless($unidades)<td class="center"><strong>VALOR</strong></td>@endunless
+      <td class="center"><strong>DEL</strong></td>
+      <td class="center"><strong>AL</strong></td>
+      <td class="center"><strong>SERIE</strong></td>
+      <td class="right">{{ $num($s['total']) }}</td>
       <td></td>
       <td></td>
     </tr>
-    @endforeach
+    @endif
 
-    {{-- REALIZACIONES --}}
+    @foreach($s['filas'] as $k => $r)
     <tr>
-      <td>{{ $ultimoDia }}</td>
-      <td colspan="5"><strong>POR REALIZACIONES EN EL MES</strong></td>
-      <td></td>
-      <td class="right">{{ number_format($realMonto, 2) }}</td>
-      <td class="right"><strong>{{ number_format($realMonto, 2) }}</strong></td>
-    </tr>
-    @foreach($realizacionesMes as $r)
-    <tr>
-      <td>{{ $r->fecha->format('d/m/Y') }}</td>
-      <td class="right">{{ number_format($r->cantidad) }}</td>
-      <td class="right">{{ number_format($r->denominacion->valor ?? 0, 2) }}</td>
-      <td class="right">{{ number_format($r->numero_inicio) }}</td>
-      <td class="right">{{ number_format($r->numero_fin) }}</td>
-      <td class="center">—</td>
-      <td class="right">{{ number_format($r->monto_cobrado, 2) }}</td>
-      <td class="right">{{ number_format($r->monto_cobrado, 2) }}</td>
-      <td></td>
-    </tr>
-    @endforeach
-
-    {{-- NULAS --}}
-    <tr>
-      <td></td>
-      <td colspan="5"><strong>NULAS</strong></td>
-      <td></td>
-      <td class="right">{{ number_format($nulaMonto, 2) }}</td>
-      <td class="right"><strong>{{ number_format($nulaMonto, 2) }}</strong></td>
-    </tr>
-    @foreach($nulasMes as $n)
-    <tr>
-      <td>{{ $n->fecha->format('d/m/Y') }}</td>
-      <td class="right">{{ number_format($cantNula($n)) }}</td>
-      <td class="right">{{ number_format($valorNula($n), 2) }}</td>
-      <td class="right">{{ number_format($n->numero_inicio) }}</td>
-      <td class="right">{{ number_format($n->numero_fin) }}</td>
-      <td class="center">{{ $n->trasladoDetalle->lote->serie ?: '—' }}</td>
-      <td class="right">{{ number_format($cantNula($n) * $valorNula($n), 2) }}</td>
-      <td class="right">{{ number_format($cantNula($n) * $valorNula($n), 2) }}</td>
-      <td></td>
-    </tr>
-    @endforeach
-
-    {{-- SALIDAS POR TRASLADO --}}
-    <tr>
-      <td></td>
-      <td colspan="5"><strong>POR TRASLADOS ENVIADOS</strong></td>
-      <td></td>
-      <td class="right">{{ number_format($salMonto, 2) }}</td>
-      <td class="right"><strong>{{ number_format($salMonto, 2) }}</strong></td>
-    </tr>
-    @foreach($salidasMes as $d)
-    <tr>
-      <td>{{ $d->traslado->fecha->format('d/m/Y') }}</td>
-      <td class="right">{{ number_format($d->cantidad) }}</td>
-      <td class="right">{{ number_format($d->lote->denominacion->valor ?? 0, 2) }}</td>
-      <td class="right">{{ number_format($d->numero_inicio) }}</td>
-      <td class="right">{{ number_format($d->numero_fin) }}</td>
-      <td class="center">{{ $d->lote->serie ?: '—' }}</td>
-      <td class="right">{{ number_format($d->cantidad * (float) ($d->lote->denominacion->valor ?? 0), 2) }}</td>
-      <td class="right">{{ number_format($d->cantidad * (float) ($d->lote->denominacion->valor ?? 0), 2) }}</td>
-      <td></td>
-    </tr>
-    @endforeach
-
-    {{-- SALDO A NUEVA CUENTA --}}
-    <tr>
-      <td>{{ $ultimoDia }}</td>
-      <td colspan="5"><strong>POR SALDO A NUEVA CUENTA</strong></td>
-      <td class="right">{{ number_format($saldoFinalMonto, 2) }}</td>
-      <td></td>
-      <td class="right"><strong>{{ number_format($saldoFinalMonto, 2) }}</strong></td>
-    </tr>
-    @foreach($saldoFinalDet as $row)
-      @foreach($row['intervalos'] as $iv)
-      <tr>
+      <td>{{ $r['caja'] ?? '' }}</td>
+      <td class="right">{{ number_format($r['cantidad']) }}</td>
+      @unless($unidades)<td class="right">{{ number_format($r['valor'], 2) }}</td>@endunless
+      <td class="right">{{ number_format($r['del']) }}</td>
+      <td class="right">{{ number_format($r['al']) }}</td>
+      <td class="center">{{ $r['serie'] ? '"' . $r['serie'] . '"' : '-' }}</td>
+      @if($s['tipo'] === 'salida')
         <td></td>
-        <td class="right">{{ number_format($iv[1] - $iv[0] + 1) }}</td>
-        <td class="right">{{ number_format($row['valor'], 2) }}</td>
-        <td class="right">{{ number_format($iv[0]) }}</td>
-        <td class="right">{{ number_format($iv[1]) }}</td>
-        <td class="center">{{ $row['lote']->serie ?: '—' }}</td>
-        <td class="right">{{ number_format(($iv[1] - $iv[0] + 1) * $row['valor'], 2) }}</td>
-        <td></td>
-        <td></td>
-      </tr>
-      @endforeach
+        <td class="right">{{ $num($r['monto']) }}</td>
+      @else
+        <td class="right">{{ $num($r['monto']) }}</td>
+        <td class="right">{{ $k === 0 && $s['tipo'] === 'realizacion' ? $num($s['total']) : '' }}</td>
+      @endif
+      <td></td>
+    </tr>
     @endforeach
-
+  @endforeach
   </tbody>
 </table>
 
-<br>
-<p class="sub">
-  Documentos: saldo anterior {{ number_format($saldoInicio) }}
-  + recibidos {{ number_format($trasCant) }}
-  &minus; realizados {{ number_format($realCant) }}
-  &minus; nulas {{ number_format($nulaCant) }}
-  &minus; enviados {{ number_format($salCant) }}
-  = <strong>{{ number_format($saldoFinal) }}</strong>.
-  Montos valuados al precio de venta de cada denominación.
-</p>
+<p class="pie">{{ $pie }}</p>
+<table class="firmas">
+  <tr>
+    <td>{{ $firmas['tesorera']['nombre'] }}<br>{{ $firmas['tesorera']['cargo'] }}</td>
+    <td>{{ $firmas['alcalde']['nombre'] }}<br>{{ $firmas['alcalde']['cargo'] }}</td>
+  </tr>
+</table>
 
-<br>
-<p style="font-size:9px; text-align:right;">Generado el {{ now()->format('d/m/Y H:i') }}</p>
+<p style="font-size:8px; text-align:right; margin-top:10px;">Generado el {{ now()->format('d/m/Y H:i') }}</p>
 
 </body>
 </html>

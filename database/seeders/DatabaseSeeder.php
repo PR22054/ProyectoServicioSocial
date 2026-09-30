@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-//seeder principal, llama a RolesSeeder. Crea los usuarios admin y empleado
+//seeder principal: roles, catalogo de especies, usuarios admin y empleado, y los datos iniciales de especies
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
         $this->call(RolesSeeder::class);
         $this->call(EspeciesMunicipalesSeeder::class);
         $this->call(DenominacionesSeeder::class);
+        $this->call(CatalogoEspeciesSeeder::class);
 
         $admin = User::create([
             'usuario'  => 'admin',
@@ -28,5 +29,8 @@ class DatabaseSeeder extends Seeder
             'rol'      => 'empleado',
         ]);
         $empleado->assignRole('empleado');
+
+        // movimientos de nov-2025 a mar-2026 de los libros de Tesoreria (necesita un usuario admin)
+        $this->call(DatosInicialesEspeciesSeeder::class);
     }
 }

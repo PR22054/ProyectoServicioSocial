@@ -9,7 +9,7 @@ class Realizacion extends Model
     //MODELO DE REALIZACION - documenta la entrega de especies a contribuyentes por rango de numeros
     protected $table    = 'realizaciones';
     protected $fillable = [
-        'tipo_especie_id', 'denominacion_id', 'distrito_id',
+        'tipo_especie_id', 'denominacion_id', 'serie', 'distrito_id',
         'numero_inicio', 'numero_fin', 'cantidad',
         'fecha', 'nombre_contribuyente', 'monto_cobrado', 'usuario_id',
     ];

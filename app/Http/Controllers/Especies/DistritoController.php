@@ -8,7 +8,10 @@ use App\Models\Nula;
 use App\Models\Realizacion;
 use App\Models\TipoEspecie;
 use App\Models\TrasladoDetalle;
+use App\Services\Inventario;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class DistritoController extends Controller
 {
@@ -29,7 +32,8 @@ class DistritoController extends Controller
             ->when($distFiltro, fn($q) => $q->where('distrito_id', $distFiltro))
             ->orderByDesc('fecha')
             ->orderByDesc('id')
-            ->get();
+            ->paginate(25)
+            ->withQueryString();
 
         return view('frontend.admin.especies.distritos.anulaciones.historial',
             compact('nulas', 'distritos', 'distFiltro'));
@@ -51,27 +55,22 @@ class DistritoController extends Controller
         $request->validate([
             'distrito_id'         => 'required|exists:distritos,id',
             'traslado_detalle_id' => 'required|exists:traslado_detalles,id',
-            'numero_inicio'       => 'required|integer|min:1',
-            'numero_fin'          => 'required|integer|min:1',
-            'fecha'               => 'required|date',
+            'numero_inicio'       => 'required|integer|min:1|max:999999999',
+            'numero_fin'          => 'required|integer|min:1|max:999999999|gte:numero_inicio',
+            'fecha'               => 'required|date|before_or_equal:today',
             'motivo'              => 'nullable|string|max:255',
         ], [
+            'fecha.before_or_equal'        => 'La fecha no puede ser posterior a hoy.',
             'distrito_id.required'         => 'Seleccione un distrito.',
             'traslado_detalle_id.required' => 'Seleccione un detalle de traslado.',
             'numero_inicio.required'       => 'El número de inicio es obligatorio.',
             'numero_fin.required'          => 'El número de fin es obligatorio.',
+            'numero_fin.gte'               => 'El número fin debe ser mayor o igual al inicio.',
             'fecha.required'               => 'La fecha es obligatoria.',
         ]);
 
-        $inicio   = (int) $request->numero_inicio;
-        $fin      = (int) $request->numero_fin;
-        $cantidad = $fin - $inicio + 1;
-
-        if ($inicio > $fin) {
-            return back()
-                ->withErrors(['numero_fin' => 'El número fin debe ser mayor al inicio.'])
-                ->withInput();
-        }
+        $inicio = (int) $request->numero_inicio;
+        $fin    = (int) $request->numero_fin;
 
         $detalle = TrasladoDetalle::with('traslado', 'lote')->findOrFail($request->traslado_detalle_id);
 
@@ -89,52 +88,44 @@ class DistritoController extends Controller
                 ->withInput();
         }
 
-        // Sin solapamiento con nulas ya registradas para el mismo detalle
-        $overlap = Nula::where('traslado_detalle_id', $detalle->id)
-            ->where('numero_inicio', '<=', $fin)
-            ->where('numero_fin', '>=', $inicio)
-            ->exists();
+        DB::transaction(function () use ($request, $detalle, $inicio, $fin) {
+            $lote = $detalle->lote;
+            Inventario::bloquear($lote->tipo_especie_id);
 
-        if ($overlap) {
-            return back()
-                ->withErrors(['numero_inicio' => 'Ese rango (o parte de él) ya fue anulado anteriormente.'])
-                ->withInput();
-        }
+            // Un numero se anula una sola vez, sin importar por cual traslado llego
+            $yaAnulado = Nula::whereHas('trasladoDetalle', fn($q) => $q->where('lote_id', $lote->id))
+                ->where('numero_inicio', '<=', $fin)
+                ->where('numero_fin', '>=', $inicio)
+                ->exists();
 
-        // Sin solapamiento con realizaciones ya registradas (no se puede anular lo ya entregado)
-        $overlapReal = Realizacion::where('tipo_especie_id', $detalle->lote->tipo_especie_id)
-            ->where('distrito_id', $request->distrito_id)
-            ->where('numero_inicio', '<=', $fin)
-            ->where('numero_fin',    '>=', $inicio)
-            ->exists();
+            if ($yaAnulado) {
+                throw ValidationException::withMessages(['numero_inicio' => 'Ese rango (o parte de él) ya fue anulado anteriormente.']);
+            }
 
-        if ($overlapReal) {
-            return back()
-                ->withErrors(['numero_inicio' => 'Ese rango (o parte de él) ya fue realizado y no puede anularse.'])
-                ->withInput();
-        }
+            // No se puede anular lo ya entregado a un contribuyente (misma serie, en cualquier distrito)
+            $yaRealizado = Realizacion::where('tipo_especie_id', $lote->tipo_especie_id)
+                ->where(fn($q) => $lote->serie === null ? $q->whereNull('serie') : $q->where('serie', $lote->serie))
+                ->where('numero_inicio', '<=', $fin)
+                ->where('numero_fin', '>=', $inicio)
+                ->exists();
 
-        // Stock disponible en el detalle (sin contar nulas ya registradas)
-        $yaAnulado  = Nula::where('traslado_detalle_id', $detalle->id)
-                        ->selectRaw('SUM(numero_fin - numero_inicio + 1) as total')
-                        ->value('total') ?? 0;
-        $disponible = $detalle->cantidad - $yaAnulado;
+            if ($yaRealizado) {
+                throw ValidationException::withMessages(['numero_inicio' => 'Ese rango (o parte de él) ya fue realizado y no puede anularse.']);
+            }
 
-        if ($cantidad > $disponible) {
-            return back()
-                ->withErrors(['numero_fin' => "La cantidad ({$cantidad}) supera el disponible ({$disponible}) en ese detalle."])
-                ->withInput();
-        }
+            Nula::create([
+                'traslado_detalle_id' => $detalle->id,
+                'distrito_id'         => $request->distrito_id,
+                'numero_inicio'       => $inicio,
+                'numero_fin'          => $fin,
+                'fecha'               => $request->fecha,
+                'motivo'              => $request->motivo,
+                'usuario_id'          => auth()->id(),
+            ]);
 
-        Nula::create([
-            'traslado_detalle_id' => $detalle->id,
-            'distrito_id'         => $request->distrito_id,
-            'numero_inicio'       => $inicio,
-            'numero_fin'          => $fin,
-            'fecha'               => $request->fecha,
-            'motivo'              => $request->motivo,
-            'usuario_id'          => auth()->id(),
-        ]);
+            // Que siga en el distrito a esa fecha (no enviado a otro lado) lo decide la historia del lote
+            Inventario::asegurar([[(int) $request->distrito_id, $lote->id]]);
+        });
 
         return redirect()->route('admin.especies.distritos.anulaciones.historial')
             ->with('success', 'Anulación registrada correctamente.');
@@ -144,27 +135,31 @@ class DistritoController extends Controller
     {
         $nula->delete();
 
-        return redirect()->route('admin.especies.distritos.anulaciones.historial')
-            ->with('success', 'Anulación eliminada correctamente.');
+        // back() conserva la pagina y el filtro del historial
+        return back()->with('success', 'Anulación eliminada correctamente.');
     }
 
     // ── AJAX ─────────────────────────────────────────────────────────────────
 
     /**
-     * Devuelve los traslado_detalles de un distrito y tipo_especie
-     * con el stock restante (cantidad - ya anulado) > 0.
+     * Devuelve los traslado_detalles de un distrito y tipo_especie con lo que de cada uno
+     * sigue en el distrito (no realizado, no anulado, no enviado a otro lado).
      */
     public function ajaxDetallesDisponibles(Request $request)
     {
+        $distId = (int) $request->distrito_id;
+        $tipoId = (int) $request->tipo_especie_id;
+        $inv    = Inventario::distrito($distId, $tipoId);
+
         $detalles = TrasladoDetalle::with('lote.tipoEspecie', 'lote.denominacion', 'traslado')
-            ->whereHas('traslado', fn($q) => $q->where('distrito_id', $request->distrito_id))
-            ->whereHas('lote',     fn($q) => $q->where('tipo_especie_id', $request->tipo_especie_id))
+            ->whereHas('traslado', fn($q) => $q->where('distrito_id', $distId))
+            ->whereHas('lote',     fn($q) => $q->where('tipo_especie_id', $tipoId))
+            ->orderBy('numero_inicio')
             ->get()
-            ->map(function ($d) {
-                $yaAnulado  = Nula::where('traslado_detalle_id', $d->id)
-                                ->selectRaw('SUM(numero_fin - numero_inicio + 1) as total')
-                                ->value('total') ?? 0;
-                $disponible = $d->cantidad - $yaAnulado;
+            ->map(function ($d) use ($inv) {
+                $rangos     = Inventario::interseccion($inv->get($d->lote_id)['intervalos'] ?? [],
+                                                        [[$d->numero_inicio, $d->numero_fin]]);
+                $disponible = Inventario::total($rangos);
 
                 // Rangos ya anulados (para informar al usuario)
                 $nulas = Nula::where('traslado_detalle_id', $d->id)
@@ -175,11 +170,13 @@ class DistritoController extends Controller
                     'id'          => $d->id,
                     'label'       => $d->lote->tipoEspecie->nombre
                                    . ' — $' . number_format($d->lote->denominacion->valor, 2)
+                                   . ($d->lote->serie ? ' — Serie ' . $d->lote->serie : '')
                                    . ' — Rango: ' . number_format($d->numero_inicio) . '–' . number_format($d->numero_fin)
                                    . ' — Disp: ' . number_format($disponible),
                     'inicio'      => $d->numero_inicio,
                     'fin'         => $d->numero_fin,
                     'disponible'  => $disponible,
+                    'rangos'      => array_map(fn($i) => ['inicio' => $i[0], 'fin' => $i[1]], $rangos),
                     'ya_anulados' => $nulas->map(fn($n) => [
                         'inicio' => $n->numero_inicio,
                         'fin'    => $n->numero_fin,
@@ -199,45 +196,17 @@ class DistritoController extends Controller
         $distritos  = Distrito::where('activo', true)->orderBy('codigo')->get();
         $distFiltro = $request->distrito_id;
 
-        // Solo traslados entrantes a un distrito (las devoluciones a bodega no tienen distrito destino)
-        $detalles = TrasladoDetalle::with(
-                'traslado.distrito',
-                'lote.tipoEspecie',
-                'lote.denominacion',
-                'lote.compra'
-            )
-            ->whereHas('traslado', fn($q) => $q->whereNotNull('distrito_id')
-                ->when($distFiltro, fn($q2) => $q2->where('distrito_id', $distFiltro)))
-            ->get();
-
-        // Realizaciones de los distritos mostrados, para descontarlas por solapamiento de rango
-        $realizaciones = Realizacion::whereIn('distrito_id',
-                $detalles->pluck('traslado.distrito_id')->unique()->filter()->values())
-            ->get(['distrito_id', 'tipo_especie_id', 'numero_inicio', 'numero_fin']);
-
-        $detalles = $detalles
-            ->map(function ($d) use ($realizaciones) {
-                $yaAnulado  = Nula::where('traslado_detalle_id', $d->id)
-                                ->selectRaw('SUM(numero_fin - numero_inicio + 1) as total')
-                                ->value('total') ?? 0;
-
-                $realizado = $realizaciones
-                    ->where('distrito_id', $d->traslado->distrito_id)
-                    ->where('tipo_especie_id', $d->lote->tipo_especie_id)
-                    ->sum(fn($r) => max(0,
-                        min($d->numero_fin, $r->numero_fin) - max($d->numero_inicio, $r->numero_inicio) + 1));
-
-                $d->anulado    = $yaAnulado;
-                $d->realizado  = $realizado;
-                $d->disponible = max(0, $d->cantidad - $yaAnulado - $realizado);
-                return $d;
-            })
+        // Una fila por distrito y lote, con los rangos que siguen en existencia
+        $filas = $distritos
+            ->when($distFiltro, fn($c) => $c->where('id', $distFiltro))
+            ->flatMap(fn($d) => Inventario::distrito($d->id)->map(fn($r) => $r + ['distrito' => $d]))
             ->sortBy([
-                fn($a, $b) => $a->traslado->distrito->codigo <=> $b->traslado->distrito->codigo,
-                fn($a, $b) => $a->lote->tipoEspecie->nombre  <=> $b->lote->tipoEspecie->nombre,
-            ]);
+                fn($a, $b) => $a['distrito']->codigo <=> $b['distrito']->codigo,
+                fn($a, $b) => $a['lote']->tipoEspecie->nombre <=> $b['lote']->tipoEspecie->nombre,
+            ])
+            ->values();
 
         return view('frontend.admin.especies.distritos.stock',
-            compact('detalles', 'distritos', 'distFiltro'));
+            compact('filas', 'distritos', 'distFiltro'));
     }
 }

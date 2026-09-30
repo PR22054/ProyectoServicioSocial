@@ -59,7 +59,7 @@
                     <label>Fecha <span class="text-danger">*</span></label>
                     <input type="date" name="fecha"
                            class="form-control @error('fecha') is-invalid @enderror"
-                           value="{{ old('fecha', date('Y-m-d')) }}" required>
+                           value="{{ old('fecha', date('Y-m-d')) }}" max="{{ date('Y-m-d') }}" required>
                     @error('fecha')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
 

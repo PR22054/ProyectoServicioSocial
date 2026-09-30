@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class UsuarioController extends Controller
 {
@@ -81,6 +82,17 @@ class UsuarioController extends Controller
     //elimina un usuario, si es el propio admin cierra sesion y redirige al login con mensaje
     public function destroy(User $usuario)
     {
+        // Quien registro movimientos queda en el historial; la base de datos tampoco permite borrarlo
+        $tieneMovimientos = DB::table('compras')->where('user_id', $usuario->id)->exists()
+            || DB::table('traslados')->where('usuario_id', $usuario->id)->exists()
+            || DB::table('realizaciones')->where('usuario_id', $usuario->id)->exists()
+            || DB::table('nulas')->where('usuario_id', $usuario->id)->exists()
+            || DB::table('ubicacion_rangos')->where('usuario_id', $usuario->id)->exists();
+
+        if ($tieneMovimientos) {
+            return back()->with('error', 'No se puede eliminar: el usuario tiene compras, traslados, realizaciones, anulaciones o asignaciones de caja registradas.');
+        }
+
         $isSelf = Auth::id() === $usuario->id;
 
         $usuario->delete();

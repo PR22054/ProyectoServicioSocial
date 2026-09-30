@@ -24,7 +24,7 @@
     </div>
 
     <div class="card">
-        <div class="card-header"><h3 class="card-title">Traslados registrados ({{ $traslados->count() }})</h3></div>
+        <div class="card-header"><h3 class="card-title">Traslados registrados ({{ $traslados->total() }})</h3></div>
         <div class="card-body p-0">
             <table class="table table-striped table-sm mb-0">
                 <thead>
@@ -43,7 +43,7 @@
                 <tbody>
                     @forelse($traslados as $traslado)
                     <tr>
-                        <td>{{ $loop->iteration }}</td>
+                        <td>{{ $traslados->firstItem() + $loop->index }}</td>
                         <td>{{ $traslado->fecha->format('d/m/Y') }}</td>
                         <td>
                             @if($traslado->tipo === 'bodega_distrito')
@@ -78,13 +78,11 @@
                                class="btn btn-xs btn-info">
                                 <i class="fas fa-eye"></i>
                             </a>
+                            {{-- Js::from escapa saltos de linea y comillas; addslashes rompia el boton con observaciones de varias lineas --}}
                             <button type="button" class="btn btn-xs btn-warning"
-                                    onclick="abrirEditTraslado({{ $traslado->id }}, '{{ $traslado->tipo }}',
-                                        {{ $traslado->distrito_id ?? 'null' }},
-                                        {{ $traslado->origen_distrito_id ?? 'null' }},
-                                        '{{ $traslado->fecha->format('Y-m-d') }}',
-                                        '{{ addslashes($traslado->observaciones ?? '') }}'
-                                    )">
+                                    onclick="abrirEditTraslado({{ $traslado->id }}, {{ Js::from($traslado->tipo) }},
+                                        {{ $traslado->distrito_id ?? 'null' }}, {{ $traslado->origen_distrito_id ?? 'null' }},
+                                        {{ Js::from($traslado->fecha->format('Y-m-d')) }}, {{ Js::from($traslado->observaciones ?? '') }})">
                                 <i class="fas fa-edit"></i>
                             </button>
                             <form method="POST"
@@ -106,6 +104,9 @@
                 </tbody>
             </table>
         </div>
+        @if($traslados->hasPages())
+            <div class="card-footer">{{ $traslados->links() }}</div>
+        @endif
     </div>
 
     {{-- modal de edición --}}
@@ -114,6 +115,9 @@
             <div class="modal-content">
                 <form method="POST" id="formEditTraslado">
                     @csrf @method('PATCH')
+                    {{-- permiten reabrir el modal sobre el mismo traslado si la validacion falla --}}
+                    <input type="hidden" name="_editar_id" id="edit_id">
+                    <input type="hidden" name="_editar_tipo" id="edit_tipo">
                     <div class="modal-header">
                         <h5 class="modal-title">Editar traslado</h5>
                         <button type="button" class="close" data-dismiss="modal">&times;</button>
@@ -145,7 +149,7 @@
 
                         <div class="form-group">
                             <label>Fecha <span class="text-danger">*</span></label>
-                            <input type="date" name="fecha" id="edit_fecha" class="form-control" required>
+                            <input type="date" name="fecha" id="edit_fecha" class="form-control" max="{{ date('Y-m-d') }}" required>
                         </div>
 
                         <div class="form-group">
@@ -175,11 +179,21 @@ function abrirEditTraslado(id, tipo, distritoId, origenId, fecha, observaciones)
 
     if (distritoId)  document.getElementById('edit_distrito_id').value        = distritoId;
     if (origenId)    document.getElementById('edit_origen_distrito_id').value = origenId;
+    document.getElementById('edit_id').value            = id;
+    document.getElementById('edit_tipo').value          = tipo;
     document.getElementById('edit_fecha').value         = fecha;
     document.getElementById('edit_observaciones').value = observaciones;
     document.getElementById('formEditTraslado').action  =
         '{{ url("admin/especies/bodega/traslados") }}/' + id;
     $('#modalEditTraslado').modal('show');
 }
+
+@if($errors->any() && old('_editar_id'))
+// La edicion fallo: reabrir el modal con lo que se escribio para que se vea el error
+document.addEventListener('DOMContentLoaded', () => abrirEditTraslado(
+    {{ Js::from(old('_editar_id')) }}, {{ Js::from(old('_editar_tipo')) }},
+    {{ Js::from(old('distrito_id')) }}, {{ Js::from(old('origen_distrito_id')) }},
+    {{ Js::from(old('fecha')) }}, {{ Js::from(old('observaciones') ?? '') }}));
+@endif
 </script>
 @endpush

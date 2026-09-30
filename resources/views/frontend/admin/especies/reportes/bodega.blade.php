@@ -23,7 +23,7 @@
                             <option value="">— Seleccione —</option>
                             @foreach($tipos as $t)
                                 <option value="{{ $t->id }}" {{ request('tipo_especie_id') == $t->id ? 'selected' : '' }}>
-                                    {{ $t->nombre }}
+                                    {{ $t->nombre }}{{ $t->activo ? "" : " (inactivo)" }}
                                 </option>
                             @endforeach
                         </select>

@@ -34,18 +34,29 @@
                                    value="{{ old('nombre') }}" placeholder="Ej. Fondo Vialidad" maxlength="100">
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="form-group mb-0">
                             <label>Descripción <small class="text-muted">(opcional)</small></label>
                             <input type="text" name="descripcion" class="form-control"
                                    value="{{ old('descripcion') }}" placeholder="Descripción breve" maxlength="255">
                         </div>
                     </div>
-                    <div class="col-md-2 d-flex align-items-center">
-                        <div class="custom-control custom-switch mt-1">
+                    <div class="col-md-1">
+                        <div class="form-group mb-0">
+                            <label>Orden</label>
+                            <input type="number" name="orden" class="form-control" value="{{ old('orden', 0) }}" min="0" max="999">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="custom-control custom-switch">
                             <input type="checkbox" class="custom-control-input" id="activo_new" name="activo" value="1"
                                    {{ old('activo', '1') ? 'checked' : '' }}>
                             <label class="custom-control-label" for="activo_new">Activo</label>
+                        </div>
+                        <div class="custom-control custom-switch" title="El libro lleva cantidades, sin valor (fórmulas, cartas, guías...)">
+                            <input type="checkbox" class="custom-control-input" id="unidades_new" name="unidades" value="1"
+                                   {{ old('unidades') ? 'checked' : '' }}>
+                            <label class="custom-control-label" for="unidades_new">En unidades</label>
                         </div>
                     </div>
                     <div class="col-md-2">
@@ -68,6 +79,8 @@
                         <th style="width:5%">#</th>
                         <th>Nombre</th>
                         <th>Descripción</th>
+                        <th class="text-center" style="width:7%">Orden</th>
+                        <th class="text-center" style="width:12%">Libro</th>
                         <th class="text-center" style="width:10%">Estado</th>
                         <th class="text-center" style="width:12%">Acciones</th>
                     </tr>
@@ -78,6 +91,8 @@
                         <td>{{ $loop->iteration }}</td>
                         <td>{{ $tipo->nombre }}</td>
                         <td class="text-muted">{{ $tipo->descripcion ?? '—' }}</td>
+                        <td class="text-center">{{ $tipo->orden }}</td>
+                        <td class="text-center">{{ $tipo->unidades ? 'En unidades' : 'Con valor' }}</td>
                         <td class="text-center">
                             @if($tipo->activo)
                                 <span class="badge badge-success">Activo</span>
@@ -87,7 +102,7 @@
                         </td>
                         <td class="text-center">
                             <button class="btn btn-xs btn-warning"
-                                    onclick="abrirEditTipo({{ $tipo->id }}, '{{ addslashes($tipo->nombre) }}', '{{ addslashes($tipo->descripcion ?? '') }}', {{ $tipo->activo }})">
+                                    onclick="abrirEditTipo({{ $tipo->id }}, {{ Js::from($tipo->nombre) }}, {{ Js::from($tipo->descripcion ?? '') }}, {{ (int) $tipo->activo }}, {{ (int) $tipo->unidades }}, {{ $tipo->orden }})">
                                 <i class="fas fa-edit"></i>
                             </button>
                             <form method="POST" action="{{ route('admin.especies.configuracion.tipos.destroy', $tipo) }}"
@@ -102,7 +117,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="5" class="text-center text-muted py-3">Sin tipos registrados</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-3">Sin tipos registrados</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -128,9 +143,18 @@
                             <label>Descripción <small class="text-muted">(opcional)</small></label>
                             <input type="text" name="descripcion" id="edit_descripcion" class="form-control" maxlength="255">
                         </div>
+                        <div class="form-group">
+                            <label>Orden <small class="text-muted">(en listas y reportes)</small></label>
+                            <input type="number" name="orden" id="edit_orden" class="form-control" min="0" max="999">
+                        </div>
                         <div class="custom-control custom-switch">
                             <input type="checkbox" class="custom-control-input" id="edit_activo" name="activo" value="1">
                             <label class="custom-control-label" for="edit_activo">Activo</label>
+                        </div>
+                        <div class="custom-control custom-switch">
+                            <input type="checkbox" class="custom-control-input" id="edit_unidades" name="unidades" value="1">
+                            <label class="custom-control-label" for="edit_unidades">Se lleva en unidades
+                                <small class="text-muted">(el libro no muestra valor ni montos en dólares)</small></label>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -146,10 +170,12 @@
 
 @push('js')
 <script>
-function abrirEditTipo(id, nombre, descripcion, activo) {
+function abrirEditTipo(id, nombre, descripcion, activo, unidades, orden) {
     document.getElementById('edit_nombre').value      = nombre;
     document.getElementById('edit_descripcion').value = descripcion;
     document.getElementById('edit_activo').checked    = activo == 1;
+    document.getElementById('edit_unidades').checked  = unidades == 1;
+    document.getElementById('edit_orden').value       = orden;
     document.getElementById('formEditTipo').action    =
         '{{ url("admin/especies/configuracion/tipos") }}/' + id;
     $('#modalEditTipo').modal('show');

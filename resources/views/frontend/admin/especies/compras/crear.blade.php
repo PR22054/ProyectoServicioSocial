@@ -37,7 +37,7 @@
                             <label>Fecha de compra <span class="text-danger">*</span></label>
                             <input type="date" name="fecha"
                                    class="form-control @error('fecha') is-invalid @enderror"
-                                   value="{{ old('fecha') }}">
+                                   value="{{ old('fecha') }}" max="{{ date('Y-m-d') }}">
                         </div>
                     </div>
                     <div class="col-md-4">

@@ -1,6 +1,6 @@
 {{-- PDF: EXISTENCIAS POR DISTRITO - existencia al corte por lote, con sus rangos, valuada a precio de venta --}}
 @php $tituloReporte = 'Libro de Existencias por Distrito'; @endphp
-@include('frontend.admin.especies.reportes.pdf._header')
+@include('frontend.admin.especies.reportes.pdf.header')
 
 <p class="label">
   Distrito: {{ $distrito->nombre }} ({{ $distrito->codigo }})
@@ -66,7 +66,7 @@
 </p>
 @endif
 
-@include('frontend.admin.especies.reportes.pdf._firma')
+@include('frontend.admin.especies.reportes.pdf.firma')
 
 </body>
 </html>

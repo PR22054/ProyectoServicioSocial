@@ -13,7 +13,7 @@
   $num      = fn($v) => $unidades ? number_format($v) : number_format($v, 2);
   $fecha    = fn($f) => $f ? $f->format('d/m/Y') : '';
 @endphp
-@include('frontend.admin.especies.reportes.pdf._header')
+@include('frontend.admin.especies.reportes.pdf.header')
 
 <p class="label">
   Distrito: {{ $distrito->nombre }} ({{ $distrito->codigo }})
@@ -97,7 +97,7 @@
   </tbody>
 </table>
 
-@include('frontend.admin.especies.reportes.pdf._firma')
+@include('frontend.admin.especies.reportes.pdf.firma')
 
 </body>
 </html>

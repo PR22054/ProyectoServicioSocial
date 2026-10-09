@@ -1,5 +1,5 @@
 @php $tituloReporte = 'Reporte Mensual por Distrito'; @endphp
-@include('frontend.admin.especies.reportes.pdf._header')
+@include('frontend.admin.especies.reportes.pdf.header')
 
 <p class="label center">{{ strtoupper($nombreMes) }} {{ $anio }}</p>
 <br>
@@ -51,7 +51,7 @@
 </table>
 @endif
 
-@include('frontend.admin.especies.reportes.pdf._firma')
+@include('frontend.admin.especies.reportes.pdf.firma')
 
 </body>
 </html>

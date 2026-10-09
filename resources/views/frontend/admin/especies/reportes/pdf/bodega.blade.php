@@ -1,6 +1,6 @@
 {{-- PDF: EXISTENCIAS EN BODEGA - lotes con stock disponible, valuados a precio de venta --}}
 @php $tituloReporte = 'Libro de Existencias en Bodega'; @endphp
-@include('frontend.admin.especies.reportes.pdf._header')
+@include('frontend.admin.especies.reportes.pdf.header')
 
 <p class="label">
   Tipo de especie: {{ $tipo->nombre }}
@@ -63,7 +63,7 @@
 </p>
 @endif
 
-@include('frontend.admin.especies.reportes.pdf._firma')
+@include('frontend.admin.especies.reportes.pdf.firma')
 
 </body>
 </html>

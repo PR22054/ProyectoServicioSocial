@@ -11,7 +11,7 @@
   };
   $costo = fn($v) => $v === null ? '' : rtrim(rtrim(number_format($v, 4), '0'), '.');
 @endphp
-@include('frontend.admin.especies.reportes.pdf._header')
+@include('frontend.admin.especies.reportes.pdf.header')
 
 <p class="label">
   Distrito: {{ $distrito->nombre }} ({{ $distrito->codigo }})
@@ -71,7 +71,7 @@
 @endif
 @endif
 
-@include('frontend.admin.especies.reportes.pdf._firma')
+@include('frontend.admin.especies.reportes.pdf.firma')
 
 </body>
 </html>

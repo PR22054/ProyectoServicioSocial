@@ -1,6 +1,6 @@
 {{-- PDF: CONSOLIDADO ANUAL - matriz meses x denominaciones, realizado y nulas --}}
 @php $tituloReporte = 'Consolidado Anual por Distrito'; @endphp
-@include('frontend.admin.especies.reportes.pdf._header')
+@include('frontend.admin.especies.reportes.pdf.header')
 
 <p class="label">
   {{ strtoupper($tipo->nombre) }}
@@ -85,7 +85,7 @@
 
 @endif
 
-@include('frontend.admin.especies.reportes.pdf._firma')
+@include('frontend.admin.especies.reportes.pdf.firma')
 
 </body>
 </html>

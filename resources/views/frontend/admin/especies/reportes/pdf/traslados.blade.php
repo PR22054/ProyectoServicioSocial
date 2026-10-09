@@ -3,7 +3,7 @@
   $tituloReporte = 'Historial de Traslados';
   $esEntrada = fn($d) => $d->traslado->distrito_id == $distrito->id;
 @endphp
-@include('frontend.admin.especies.reportes.pdf._header')
+@include('frontend.admin.especies.reportes.pdf.header')
 
 <p class="label">
   Distrito: {{ $distrito->nombre }} ({{ $distrito->codigo }})
@@ -63,7 +63,7 @@
 </table>
 @endif
 
-@include('frontend.admin.especies.reportes.pdf._firma')
+@include('frontend.admin.especies.reportes.pdf.firma')
 
 </body>
 </html>

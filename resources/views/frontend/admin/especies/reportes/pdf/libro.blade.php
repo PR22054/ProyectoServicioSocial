@@ -1,4 +1,4 @@
-{{-- PDF: LIBRO DE ESPECIES MUNICIPALES (TESO-008) - mismas secciones, rotulos y columnas que el libro de Tesoreria.
+{{-- PDF: LIBRO DE ESPECIES MUNICIPALES (TESO-004-CONT) - mismas secciones, rotulos y columnas que el libro de Tesoreria.
      Los montos van en EXISTENCIA (los traslados enviados en REALIZACION); el total de cada seccion en SALDO y las
      realizaciones repiten su total en REALIZACION en la primera fila. Las nulas se descuentan aparte salvo en los
      libros que las suman a las realizaciones. Los tipos que se llevan en unidades no tienen columna VALOR. --}}
@@ -7,8 +7,7 @@
   $codigoFormulario   = config('especies.libro.codigo');
   $versionFormulario  = config('especies.libro.version');
   $vigenciaFormulario = config('especies.libro.vigencia');
-  $encabezadoCaja     = 'FORMULARIO LIBRO DE ESPECIES MUNICIPALES';
-  $sinNit             = true;
+  $encabezadoCaja     = 'REPORTE DE LIBRO DE ESPECIES MUNICIPALES';
 
   $columnas = $unidades ? 4 : 5;
   $num      = fn($v) => $unidades ? number_format($v) : number_format($v, 2);
@@ -16,15 +15,13 @@
 @endphp
 @include('frontend.admin.especies.reportes.pdf._header')
 
-<p class="titulo">UNIDAD DE TESORERÍA</p>
-<p class="titulo">LIBRO DE ESPECIES MUNICIPALES</p>
-<p class="titulo">ALCALDIA MUNICIPAL DE SANTA ANA NORTE</p>
-<p class="titulo">{{ $titulo }}</p>
-<p class="titulo">{{ mb_strtoupper($nombreMes) }} {{ $anio }}</p>
-<p class="titulo">{{ $distrito->nombre_reporte }}</p>
-@if($denomFiltro)
-  <p class="center sub">Solo la denominación {{ $denomFiltro->etiqueta }}</p>
-@endif
+<p class="label">
+  Distrito: {{ $distrito->nombre }} ({{ $distrito->codigo }})
+  &nbsp;|&nbsp; Tipo: {{ $tipo->nombre }}
+  @if($denomFiltro)&nbsp;|&nbsp; Denominación: {{ $denomFiltro->etiqueta }}@endif
+  &nbsp;|&nbsp; Del {{ $desde->format('d/m/Y') }} al {{ $hasta->format('d/m/Y') }}
+</p>
+<br>
 
 <table class="datos">
   <thead>
@@ -100,15 +97,7 @@
   </tbody>
 </table>
 
-<p class="pie">{{ $pie }}</p>
-<table class="firmas">
-  <tr>
-    <td>{{ $firmas['tesorera']['nombre'] }}<br>{{ $firmas['tesorera']['cargo'] }}</td>
-    <td>{{ $firmas['alcalde']['nombre'] }}<br>{{ $firmas['alcalde']['cargo'] }}</td>
-  </tr>
-</table>
-
-<p style="font-size:8px; text-align:right; margin-top:10px;">Generado el {{ now()->format('d/m/Y H:i') }}</p>
+@include('frontend.admin.especies.reportes.pdf._firma')
 
 </body>
 </html>

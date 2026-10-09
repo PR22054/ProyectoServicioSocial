@@ -13,8 +13,10 @@ use App\Models\Realizacion;
 use App\Models\TipoEspecie;
 use App\Models\TrasladoDetalle;
 use App\Services\Inventario;
+use App\Services\Tarifas;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Mccarlosen\LaravelMpdf\Facades\LaravelMpdf as PDF;
 
 class ReporteController extends Controller
@@ -64,7 +66,7 @@ class ReporteController extends Controller
     }
 
     /**
-     * Libro de Especies Municipales (TESO-008) de un distrito, tipo y mes, en el orden y la forma de los
+     * Libro de Especies Municipales (TESO-004-CONT) de un distrito, tipo y mes, en el orden y la forma de los
      * libros de Tesoreria: saldo anterior, compras por factura, traslados recibidos, realizaciones, nulas,
      * traslados enviados y saldo a nueva cuenta. Los tipos que se llevan en unidades no se valuan.
      */
@@ -164,12 +166,13 @@ class ReporteController extends Controller
             'mes'         => $mes,
             'anio'        => $anio,
             'nombreMes'   => $nombreMes,
+            'desde'       => $inicioMes,
+            'hasta'       => $finMes,
             'denomFiltro' => $denomFiltro,
             'secciones'   => $secciones,
             'nulasJuntas' => $nulasJuntas,
             'pie'         => ($distrito->lugar_firma ?: $distrito->nombre_reporte) . ', '
                            . $finMes->day . ' DE ' . mb_strtoupper($nombreMes) . ' DE ' . $anio . '.',
-            'firmas'      => config('especies.firmas'),
         ];
     }
 
@@ -281,7 +284,8 @@ class ReporteController extends Controller
         if ($request->has('generar')) {
             $request->validate([
                 'distrito_id'     => 'required|exists:distritos,id',
-                'tipo_especie_id' => 'required|exists:tipo_especies,id',
+                // "todos" reporta todas las especies del distrito
+                'tipo_especie_id' => ['required', Rule::when($request->tipo_especie_id !== 'todos', 'exists:tipo_especies,id')],
                 'fecha_desde'     => 'required|date',
                 'fecha_hasta'     => 'required|date|after_or_equal:fecha_desde',
             ]);
@@ -294,18 +298,27 @@ class ReporteController extends Controller
     private function pdfRealizaciones(Request $request)
     {
         $distrito = Distrito::findOrFail($request->distrito_id);
-        $tipo     = TipoEspecie::findOrFail($request->tipo_especie_id);
+        $tipo     = $request->tipo_especie_id === 'todos' ? null : TipoEspecie::findOrFail($request->tipo_especie_id);
         $desde    = Carbon::parse($request->fecha_desde)->startOfDay();
         $hasta    = Carbon::parse($request->fecha_hasta)->endOfDay();
 
         $realizaciones = Realizacion::where('distrito_id', $distrito->id)
-            ->where('tipo_especie_id', $tipo->id)
+            ->when($tipo, fn($q) => $q->where('tipo_especie_id', $tipo->id))
             ->whereBetween('fecha', [$desde, $hasta])
-            ->with(['denominacion', 'usuario'])
+            ->with(['denominacion', 'tipoEspecie'])
             ->orderBy('fecha')->orderBy('numero_inicio')->get();
 
+        // Descargo = cantidad x costo de la tarifa del distrito, igual que en el control de saldos
+        $costos = $realizaciones->pluck('denominacion')->unique('id')
+            ->mapWithKeys(fn($d) => [$d->id => Tarifas::de($distrito->id, $d)['precio_costo']]);
+
+        // Una seccion por tipo, en el orden en que el distrito lista sus especies
+        $orden  = DistritoTipoEspecie::where('distrito_id', $distrito->id)->pluck('orden', 'tipo_especie_id');
+        $grupos = $realizaciones->groupBy('tipo_especie_id')
+            ->sortBy(fn($rs, $tipoId) => [$orden[$tipoId] ?? 999, $rs->first()->tipoEspecie->orden, $tipoId]);
+
         $html = view('frontend.admin.especies.reportes.pdf.realizaciones',
-            compact('distrito', 'tipo', 'desde', 'hasta', 'realizaciones'))->render();
+            compact('distrito', 'tipo', 'desde', 'hasta', 'realizaciones', 'grupos', 'costos'))->render();
 
         return PDF::loadHTML($html, $this->pdfConfig())
             ->stream("realizaciones-{$distrito->codigo}.pdf");
@@ -675,20 +688,14 @@ class ReporteController extends Controller
             ];
         }
 
-        $mesCompleto = $desde->day === 1 && $hasta->isSameDay($desde->copy()->endOfMonth());
-
         return [
             'distrito'             => $distrito,
             'desde'                => $desde,
             'hasta'                => $hasta,
-            'periodo'              => $mesCompleto
-                ? mb_strtoupper($this->meses[$desde->month]) . ' ' . $desde->year
-                : 'DEL ' . $desde->format('d/m/Y') . ' AL ' . $hasta->format('d/m/Y'),
             'grupos'               => $grupos,
             'totalVtaGeneral'      => array_sum(array_map(fn($g) => $g['total_venta'] ?? 0, $grupos)),
             'totalDescargoGeneral' => array_sum(array_column($grupos, 'total_descargo')),
             'faltaCosto'           => collect($grupos)->pluck('filas')->collapse()->contains(fn($f) => $f['costo'] === null),
-            'firma'                => config('especies.firmas.tesorera'),
         ];
     }
 }

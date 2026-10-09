@@ -25,8 +25,6 @@
   .badge-ok   { background: #d4edda; color: #155724; padding: 1px 4px; border-radius: 3px; }
   .badge-warn { background: #fff3cd; color: #856404; padding: 1px 4px; border-radius: 3px; }
   .pie        { margin-top: 10px; font-weight: bold; }
-  .firmas     { width: 100%; margin-top: 45px; text-align: center; font-weight: bold; }
-  .firmas td  { width: 50%; vertical-align: top; }
 </style>
 </head>
 <body>

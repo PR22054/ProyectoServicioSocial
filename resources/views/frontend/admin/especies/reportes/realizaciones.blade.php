@@ -34,6 +34,7 @@
                         <label>Tipo de especie <span class="text-danger">*</span></label>
                         <select name="tipo_especie_id" class="form-control @error('tipo_especie_id') is-invalid @enderror" required>
                             <option value="">— Seleccione —</option>
+                            <option value="todos" {{ request('tipo_especie_id') === 'todos' ? 'selected' : '' }}>Todas las especies</option>
                             @foreach($tipos as $t)
                                 <option value="{{ $t->id }}" {{ request('tipo_especie_id') == $t->id ? 'selected' : '' }}>
                                     {{ $t->nombre }}{{ $t->activo ? "" : " (inactivo)" }}

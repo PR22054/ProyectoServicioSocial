@@ -1,9 +1,7 @@
-{{-- PDF: ESPECIES MUNICIPALES REALIZADAS - con la plantilla del distrito: sus tipos, rotulos, costos y precios.
+{{-- PDF: CONTROL DE SALDOS (especies municipales realizadas) - con la plantilla del distrito: sus tipos, rotulos, costos y precios.
      PRECIO DE VTA. queda en blanco en lo que no se vende; DESCARGOS = cantidad x costo, incluidas las nulas --}}
 @php
-  $tituloReporte = 'Especies Municipales Realizadas';
-  $sinRecuadro   = true;
-  $sinNit        = true;
+  $tituloReporte = 'Control de Saldos';
 
   // al menos dos decimales, y hasta cuatro cuando hacen falta (0.015 x 1261 = 18.915)
   $dinero = function ($v) {
@@ -15,10 +13,11 @@
 @endphp
 @include('frontend.admin.especies.reportes.pdf._header')
 
-<p class="titulo">ALCALDIA MUNICIPAL DE SANTA ANA NORTE</p>
-<p class="titulo">{{ $distrito->nombre_reporte }}</p>
-<p class="titulo">ESPECIES MUNICIPALES REALIZADAS</p>
-<p class="titulo">{{ $periodo }}</p>
+<p class="label">
+  Distrito: {{ $distrito->nombre }} ({{ $distrito->codigo }})
+  &nbsp;|&nbsp; Tipo: Todas las especies
+  &nbsp;|&nbsp; Del {{ $desde->format('d/m/Y') }} al {{ $hasta->format('d/m/Y') }}
+</p>
 <br>
 
 @if(empty($grupos))
@@ -72,11 +71,7 @@
 @endif
 @endif
 
-<table class="firmas">
-  <tr><td>{{ $firma['nombre'] }}<br>{{ $firma['cargo'] }}</td></tr>
-</table>
-
-<p style="font-size:8px; text-align:right; margin-top:10px;">Generado el {{ now()->format('d/m/Y H:i') }}</p>
+@include('frontend.admin.especies.reportes.pdf._firma')
 
 </body>
 </html>

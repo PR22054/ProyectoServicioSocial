@@ -85,8 +85,7 @@
 
 @endif
 
-<br>
-<p style="font-size:9px; text-align:right;">Generado el {{ now()->format('d/m/Y H:i') }}</p>
+@include('frontend.admin.especies.reportes.pdf._firma')
 
 </body>
 </html>

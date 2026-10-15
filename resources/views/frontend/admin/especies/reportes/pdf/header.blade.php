@@ -39,7 +39,7 @@
       @isset($encabezadoCaja){{ $encabezadoCaja }}@else REPORTE DE<br>{{ strtoupper($tituloReporte) }}@endisset
     </td>
     <td style="font-weight:bold;">Código:</td>
-    <td>{{ $codigoFormulario ?? 'TESO-001-CONS' }}</td>
+    <td>{{ $codigoFormulario ?? config('especies.codigos.otros') }}</td>
   </tr>
   <tr>
     <td style="font-weight:bold;">Versión:</td>

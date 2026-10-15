@@ -127,20 +127,21 @@ class CatalogoEspeciesSeeder extends Seeder
         }
     }
 
-    /** Plantilla de cada distrito, igual a sus libros y a su reporte "Especies Municipales Realizadas". */
+    /** Plantilla de cada distrito, igual a sus libros y a su reporte "Control de Saldos" (hojas SALDOS de Tesoreria). */
     private function plantillas(): array
     {
         // fila del reporte: descripcion, valor de la denominacion, costo y precio de venta (null: no se vende)
         $fila  = fn(float $valor, string $descripcion, float $costo, ?float $venta = null) =>
             ['nulas' => false, 'valor' => $valor, 'descripcion' => $descripcion, 'costo' => $costo, 'venta' => $venta];
-        // fila de nulas de esa denominacion; con venta muestra 0.00 en PRECIO DE VTA.
+        // fila de nulas de esa denominacion (en las hojas de saldos siempre va en cero); con venta muestra 0.00
         $nulas = fn(float $valor, string $descripcion = 'NULAS', bool $conVenta = false) =>
             ['nulas' => true, 'valor' => $valor, 'descripcion' => $descripcion, 'con_venta' => $conVenta];
 
-        $titulos = ['TITULOS A PERPETUIDAD', 'TITULOS A PERPETUIDAD EN CEMENTERIOS', [$fila(0.53, 'TITULOS', 0.53)]];
-        $guias   = ['GUIAS DE CONDUCCION DE GANADO MAYOR Y MENOR', 'GUIAS DE CONDUCCION DE GANADO MAYOR Y MENOR',
-                    [$fila(0.20, 'GUIAS DE CONDUCCION DE GANADO', 0.20)]];
-        $vialidad343 = [$fila(3.43, 'DE $ 3.43', 0.10, 3.43), $nulas(3.43, 'DE $3.43 NULAS', true)];
+        $titulos  = ['TITULOS A PERPETUIDAD', 'TITULOS A PERPETUIDAD EN CEMENTERIOS', [$fila(0.53, 'TITULOS', 0.53)]];
+        $guias    = ['GUIAS DE CONDUCCION DE GANADO MAYOR Y MENOR', 'GUIAS DE CONDUCCION DE GANADO MAYOR Y MENOR',
+                     [$fila(0.20, 'GUIAS DE CONDUCCION DE GANADO', 0.20)]];
+        $continua = [$fila(0.10, 'FÓRMULAS 1-ISAM CONTINUAS', 0.10)];
+        $vialidad343 = [$fila(3.43, 'DE 30 COLONES $ 3.43', 0.10, 3.43), $nulas(3.43, 'DE $3.43 NULAS', true)];
 
         return [
             'D01' => [
@@ -151,8 +152,8 @@ class CatalogoEspeciesSeeder extends Seeder
                 'nulas_en_realizaciones' => ['Cartas de Venta Continua', 'Tarjetas para Carnet de Identificación'],
                 'tipos'          => [
                     'Fondo Vialidad' => ['FONDO DE VIALIDAD', 'FONDO DE VIALIDAD', [
-                        $fila(0.57, 'DE $0.57', 0.075, 0.57), $fila(1.14, 'DE $1.14', 0.15, 1.14), $fila(3.43, 'DE $ 3.43', 0.10, 3.43),
-                        $nulas(0.57, 'DE $0.57 NULAS', true), $nulas(1.14, 'DE $1.14 NULAS', true), $nulas(3.43, 'DE $3.43 NULAS', true),
+                        $fila(0.57, 'DE 5 COLONES $0.57', 0.075, 0.57), $fila(1.14, 'DE $1.14', 0.15, 1.14),
+                        $fila(3.43, 'DE 30 COLONES $ 3.43', 0.10, 3.43),
                     ]],
                     'Tiquetes de Mercado' => ['TIQUETES DE MERCADO', 'TIQUETES DE MERCADO', [
                         $fila(0.12, 'DE $0.12', 0.0105, 0.12), $fila(0.15, 'DE $0.15', 0.015, 0.15),
@@ -162,10 +163,10 @@ class CatalogoEspeciesSeeder extends Seeder
                         $fila(0.50, 'DE $0.50', 0.015, 0.50),
                     ]],
                     'Cartas de Venta Continua' => ['CARTAS DE VENTA', 'CARTAS DE VENTA', [
-                        $fila(0.15, 'CARTAS DE VENTA', 0.15), $nulas(0.15),
+                        $fila(0.15, 'CARTAS DE VENTA', 0.15),
                     ]],
-                    'Tarjetas para Carnet de Identificación' => ['TARJETAS PARA CARNET DE IDENTIFICACIÓN', 'TARJETAS PARA CARNET DE IDENTIFICACIÓN', [
-                        $fila(0.30, 'DE $3.15', 0.30, 3.15), $nulas(0.30, 'NULAS', true),
+                    'Tarjetas para Carnet de Identificación' => ['TARJETAS PARA CARNET DE IDENTIFICACIÓN', 'TARJETAS CARNET DE MENORES', [
+                        $fila(0.30, 'DE $3.15', 0.30, 3.15),
                     ]],
                     'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM', 'FORMULAS 1-I SAM', [
                         $fila(0.10, 'FÓRMULAS CONTINUAS', 0.10),
@@ -179,24 +180,22 @@ class CatalogoEspeciesSeeder extends Seeder
                 'nulas_en_realizaciones' => ['Cartas de Venta', 'Cartas de Venta Continua', 'Fórmulas 1-ISAM Continua'],
                 'tipos'          => [
                     'Fondo Vialidad' => ['FONDO DE VIALIDAD', 'FONDO DE VIALIDAD', [
-                        $fila(0.57, 'DE $0.57', 0.10, 0.57), $fila(3.43, 'DE $ 3.43', 0.10, 3.43),
-                        $nulas(3.43, 'DE $3.43 NULAS', true), $nulas(0.57, 'DE $0.57 NULAS', true),
+                        $fila(0.57, 'DE 5 COLONES $0.57', 0.10, 0.57), $fila(3.43, 'DE 30 COLONES $ 3.43', 0.10, 3.43),
+                        $nulas(0.57, 'DE $0.57 NULAS', true), $nulas(3.43, 'DE $3.43 NULAS', true),
                     ]],
                     'Cartas de Venta' => ['CARTAS DE VENTA', 'CARTAS DE VENTA', [
-                        $fila(0.15, 'CARTAS DE VENTA', 0.15), $nulas(0.15),
+                        $fila(0.15, 'CARTAS DE VENTA', 0.15),
                     ]],
                     'Cartas de Venta Continua' => ['CARTA DE VENTA CONTINUA', 'CARTAS DE VENTA CONTINUAS', [
-                        $fila(0.15, 'CARTAS DE VENTA', 0.15), $nulas(0.15),
+                        $fila(0.15, 'CARTAS DE VENTA', 0.15),
                     ]],
-                    'Tarjetas para Carnet de Identificación' => ['TARJETAS PARA CARNET DE IDENTIFICACIÓN', 'TARJETAS PARA CARNET DE IDENTIFICACIÓN', [
-                        $fila(0.30, 'TARJETAS PARA IDENTIFICACION', 0.30), $nulas(0.30, 'NULAS', true),
+                    'Tarjetas para Carnet de Identificación' => ['TARJETAS PARA CARNET DE IDENTIFICACIÓN', 'TARJETAS PARA CARNET DE IDENTIFICACION', [
+                        $fila(0.30, 'TARJETAS PARA IDENTIFICACION', 0.30),
                     ]],
                     'Fórmulas 1-ISAM Plana' => ['FORMULAS 1-ISAM FORMA PLANA', 'FORMULAS 1-I SAM FORMA PLANA', [
                         $fila(0.06, 'FÓRMULAS 1-ISAM FORMA PLANA', 0.06),
                     ]],
-                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM CONTINUA', 'FORMULAS 1-I SAM FORMA CONTINUA', [
-                        $fila(0.10, 'FÓRMULAS 1-ISAM CONTINUA', 0.10),
-                    ]],
+                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM CONTINUA', 'FORMULAS 1-I SAM CONTINUA', $continua],
                     'Títulos a Perpetuidad' => $titulos,
                     'Boletos de Cobro de Material Pétreo' => ['BOLETOS DE COBRO DE MATERIAL PETREO', 'BOLETOS DE COBRO DE MATERIAL PETREO', [
                         $fila(0.06, 'MATERIAL PETREO', 0.06),
@@ -204,8 +203,8 @@ class CatalogoEspeciesSeeder extends Seeder
                     'Tarjetas de Inmuebles' => ['TARJETAS DE INMUEBLES', 'TARJETAS DE INMUEBLES', [
                         $fila(0.26, 'TARJETAS DE INMUEBLES', 0.26),
                     ]],
-                    'Tarjetas de Empresa' => ['TARJETAS DE EMPRESA', 'TARJETAS DE EMPRESA', [
-                        $fila(0.26, 'TARJETAS DE EMPRESA', 0.26),
+                    'Tarjetas de Empresa' => ['TARJETAS DE EMPRESA', 'TARJETAS DE EMPRESAS', [
+                        $fila(0.26, 'TARJETAS DE EMPRESAS', 0.26),
                     ]],
                     'Guías de Conducción de Ganado' => $guias,
                 ],
@@ -216,14 +215,12 @@ class CatalogoEspeciesSeeder extends Seeder
                 'tipos'          => [
                     'Fondo Vialidad' => ['FONDO DE VIALIDAD', 'FONDO DE VIALIDAD', $vialidad343],
                     'Tiquetes de Mercado' => ['TIQUETES DE MERCADO', 'TIQUETES DE MERCADO', [
-                        $fila(0.15, 'DE $0.15', 0.015), $fila(1.00, 'DE $1.00', 0.015),
+                        $fila(0.15, 'DE $0.15', 0.015, 0.15), $fila(1.00, 'DE $1.00', 0.015, 1.00),
                     ]],
                     'Cartas de Venta Continua' => ['CARTAS DE VENTA', 'CARTAS DE VENTA', [
-                        $fila(0.15, 'CARTAS DE VENTA', 0.15), $nulas(0.15),
+                        $fila(0.15, 'CARTAS DE VENTA', 0.15),
                     ]],
-                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM', 'FORMULAS 1-I SAM FORMA CONTINUA', [
-                        $fila(0.10, 'FÓRMULAS 1-ISAM CONTINUA', 0.10),
-                    ]],
+                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM', 'FORMULAS 1-I SAM CONTINUA', $continua],
                     'Títulos a Perpetuidad'         => $titulos,
                     'Guías de Conducción de Ganado' => $guias,
                 ],
@@ -238,20 +235,18 @@ class CatalogoEspeciesSeeder extends Seeder
                         $fila(0.25, 'DE $0.25', 0.015, 0.25), $fila(1.00, 'DE $1.00', 0.015, 1.00),
                     ]],
                     'Tarjetas de Control de Mercado' => ['TARJETAS DE CONTROL DE MERCADO', 'TARJETAS DE CONTROL DE MERCADO', [
-                        $fila(0.30, 'TARJETAS DE CONTROL DE MERCADO', 0.30), $nulas(0.30),
+                        $fila(0.30, 'TARJETAS DE CONTROL DE MERCADO', 0.30),
                     ]],
                     'Cartas de Venta Continua' => ['CARTAS DE VENTA FORMA CONTINUA', 'CARTA DE VENTA CONTINUA', [
-                        $fila(0.15, 'CARTAS DE VENTA', 0.15), $nulas(0.15),
+                        $fila(0.15, 'CARTAS DE VENTA', 0.15),
                     ]],
                     'Carnet de Menores' => ['CARNET DE MENORES', 'CARNET DE IDENTIDAD DE MENORES', [
-                        $fila(0.09, 'JUEGO DE CARTULINA', 0.09, 2.00), $nulas(0.09),
+                        $fila(0.09, 'JUEGO DE CARTULINA', 0.09, 2.00), $fila(0.06, 'JUEGO DE CARTULINA', 0.06),
                     ]],
                     'Avisos de Cobro Común' => ['AVISOS DE COBRO COMUN', 'AVISOS DE COBRO COMUN', [
                         $fila(0.10, 'AVISOS DE COBRO COMUN', 0.10),
                     ]],
-                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM', 'FORMULAS 1-I SAM FORMA CONTINUA', [
-                        $fila(0.10, 'FÓRMULAS 1-ISAM CONTINUA', 0.10),
-                    ]],
+                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM', 'FORMULAS 1-I SAM CONTINUA', $continua],
                     'Títulos a Perpetuidad' => $titulos,
                 ],
             ],

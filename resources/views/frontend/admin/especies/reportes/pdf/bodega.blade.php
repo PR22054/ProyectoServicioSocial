@@ -1,5 +1,8 @@
 {{-- PDF: EXISTENCIAS EN BODEGA - lotes con stock disponible, valuados a precio de venta --}}
-@php $tituloReporte = 'Libro de Existencias en Bodega'; @endphp
+@php
+  $tituloReporte    = 'Libro de Existencias en Bodega';
+  $codigoFormulario = config('especies.codigos.bodega');
+@endphp
 @include('frontend.admin.especies.reportes.pdf.header')
 
 <p class="label">

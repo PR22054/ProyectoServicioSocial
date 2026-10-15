@@ -1,10 +1,10 @@
-{{-- PDF: LIBRO DE ESPECIES MUNICIPALES (TESO-004-CONT) - mismas secciones, rotulos y columnas que el libro de Tesoreria.
+{{-- PDF: LIBRO DE ESPECIES MUNICIPALES (TESO-008-FORM) - mismas secciones, rotulos y columnas que el libro de Tesoreria.
      Los montos van en EXISTENCIA (los traslados enviados en REALIZACION); el total de cada seccion en SALDO y las
      realizaciones repiten su total en REALIZACION en la primera fila. Las nulas se descuentan aparte salvo en los
      libros que las suman a las realizaciones. Los tipos que se llevan en unidades no tienen columna VALOR. --}}
 @php
   $tituloReporte      = 'Libro de Especies Municipales';
-  $codigoFormulario   = config('especies.libro.codigo');
+  $codigoFormulario   = config('especies.codigos.libro');
   $versionFormulario  = config('especies.libro.version');
   $vigenciaFormulario = config('especies.libro.vigencia');
   $encabezadoCaja     = 'REPORTE DE LIBRO DE ESPECIES MUNICIPALES';

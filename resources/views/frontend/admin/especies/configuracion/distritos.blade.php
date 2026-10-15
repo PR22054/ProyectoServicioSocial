@@ -75,7 +75,7 @@
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Tipos de especie del distrito</h3>
-            <small class="text-muted ml-2">Título en el libro y en el reporte de especies realizadas, y orden en el reporte</small>
+            <small class="text-muted ml-2">Título en el libro y en el control de saldos, y orden en el control de saldos</small>
         </div>
         <div class="card-body p-0">
             @foreach($config as $c)
@@ -93,7 +93,7 @@
                     <tr>
                         <th style="width:20%">Tipo</th>
                         <th>Título en el libro</th>
-                        <th>Título en el reporte</th>
+                        <th>Título en control de saldos</th>
                         <th style="width:7%">Orden</th>
                         <th class="text-center" style="width:13%" title="El libro suma las nulas al total de realizaciones">Nulas en realizaciones</th>
                         <th class="text-center" style="width:9%"></th>
@@ -141,7 +141,7 @@
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Tarifas del distrito</h3>
-            <small class="text-muted ml-2">Filas del reporte de especies realizadas. Precio de venta vacío = no se vende</small>
+            <small class="text-muted ml-2">Filas del control de saldos; el costo y el precio de venta también calculan cobros y descargos. Precio de venta vacío = no se vende</small>
         </div>
         <div class="card-body p-0">
             @foreach($tarifas as $t)
@@ -162,7 +162,7 @@
                         <th style="width:9%">P. costo</th>
                         <th style="width:9%">P. venta</th>
                         <th style="width:6%">Orden</th>
-                        <th>Fila de nulas</th>
+                        <th title="Fila que el control de saldos muestra siempre en cero">Fila de nulas</th>
                         <th style="width:6%">Orden</th>
                         <th class="text-center" style="width:7%" title="La fila de nulas muestra 0.00 en precio de venta">Nulas con venta</th>
                         <th class="text-center" style="width:7%"></th>
@@ -176,7 +176,7 @@
                         <td><input type="number" name="precio_costo" form="f-tar-{{ $t->id }}" class="form-control form-control-sm" step="0.0001" min="0" value="{{ $t->precio_costo !== null ? (float) $t->precio_costo : '' }}"></td>
                         <td><input type="number" name="precio_venta" form="f-tar-{{ $t->id }}" class="form-control form-control-sm" step="0.0001" min="0" value="{{ $t->precio_venta !== null ? (float) $t->precio_venta : '' }}" placeholder="no se vende"></td>
                         <td><input type="number" name="orden" form="f-tar-{{ $t->id }}" class="form-control form-control-sm" min="0" max="999" value="{{ $t->orden }}"></td>
-                        <td><input type="text" name="descripcion_nulas" form="f-tar-{{ $t->id }}" class="form-control form-control-sm" maxlength="150" value="{{ $t->descripcion_nulas }}" placeholder="sin fila: se suman a lo realizado"></td>
+                        <td><input type="text" name="descripcion_nulas" form="f-tar-{{ $t->id }}" class="form-control form-control-sm" maxlength="150" value="{{ $t->descripcion_nulas }}" placeholder="sin fila de nulas"></td>
                         <td><input type="number" name="orden_nulas" form="f-tar-{{ $t->id }}" class="form-control form-control-sm" min="0" max="999" value="{{ $t->orden_nulas }}"></td>
                         <td class="text-center align-middle"><input type="checkbox" name="nulas_con_venta" value="1" form="f-tar-{{ $t->id }}" {{ $t->nulas_con_venta ? 'checked' : '' }}></td>
                         <td class="text-center text-nowrap">

@@ -1,7 +1,13 @@
-@php $tituloReporte = 'Reporte Mensual por Distrito'; @endphp
+@php
+  $tituloReporte  = 'Reporte Mensual por Distrito';
+  $encabezadoCaja = 'REPORTE MENSUAL POR DISTRITO';
+@endphp
 @include('frontend.admin.especies.reportes.pdf.header')
 
-<p class="label center">{{ strtoupper($nombreMes) }} {{ $anio }}</p>
+<p class="label center">
+  {{ mb_strtoupper($nombreMes) }} {{ $anio }}
+  &nbsp;|&nbsp; {{ $distrito ? mb_strtoupper($distrito->nombre) . ' (' . $distrito->codigo . ')' : 'TODOS LOS DISTRITOS' }}
+</p>
 <br>
 
 @if(empty($tabla))

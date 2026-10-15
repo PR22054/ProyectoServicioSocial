@@ -1,7 +1,8 @@
-{{-- PDF: REALIZACIONES POR PERIODO - documentos realizados por el distrito, de un tipo o de todos agrupados por tipo.
-     DESCARGO = cantidad x costo de la tarifa del distrito --}}
+{{-- PDF: REALIZACIONES POR PERIODO - documentos realizados por el distrito, de un tipo o de todos agrupados por tipo,
+     con una fila de NULAS por tipo. DESCARGO = cantidad x costo de la tarifa del distrito, incluidas las nulas --}}
 @php
-  $tituloReporte = 'Realizaciones por Período';
+  $tituloReporte    = 'Realizaciones por Período';
+  $codigoFormulario = config('especies.codigos.realizaciones');
   $descargo = fn($r) => $r->cantidad * (float) ($costos[$r->denominacion_id] ?? 0);
 
   // al menos dos decimales, y hasta cuatro cuando hacen falta (0.015 x 7673 = 115.095)
@@ -10,6 +11,10 @@
       return $entero . '.' . str_pad($dec, 2, '0');
   };
   $n = 0;
+
+  // totales de un grupo: realizado mas nulas (las nulas no cobran)
+  $cantidad   = fn($g) => $g['realizaciones']->sum('cantidad') + $g['nulas'];
+  $descargoG  = fn($g) => $g['realizaciones']->sum($descargo) + $g['descargo_nulas'];
 @endphp
 @include('frontend.admin.especies.reportes.pdf.header')
 
@@ -20,8 +25,8 @@
 </p>
 <br>
 
-@if($realizaciones->isEmpty())
-  <p class="center">Sin realizaciones registradas para los filtros seleccionados.</p>
+@if($grupos->isEmpty())
+  <p class="center">Sin realizaciones ni nulas registradas para los filtros seleccionados.</p>
 @else
 <table class="datos">
   <thead>
@@ -38,11 +43,11 @@
     </tr>
   </thead>
   <tbody>
-    @foreach($grupos as $rs)
+    @foreach($grupos as $g)
       @unless($tipo)
-      <tr><td colspan="9" style="background:#e8eff8;"><strong>{{ mb_strtoupper($rs->first()->tipoEspecie->nombre) }}</strong></td></tr>
+      <tr><td colspan="9" style="background:#e8eff8;"><strong>{{ mb_strtoupper($g['tipo']->nombre) }}</strong></td></tr>
       @endunless
-      @foreach($rs as $r)
+      @foreach($g['realizaciones'] as $r)
       <tr class="{{ $n % 2 == 1 ? 'alt' : '' }}">
         <td class="center">{{ ++$n }}</td>
         <td class="center">{{ $r->fecha->format('d/m/Y') }}</td>
@@ -55,12 +60,21 @@
         <td class="right">${{ $dinero($descargo($r)) }}</td>
       </tr>
       @endforeach
+      @if($g['nulas'])
+      <tr>
+        <td></td>
+        <td colspan="5"><strong>NULAS</strong></td>
+        <td class="right">{{ number_format($g['nulas']) }}</td>
+        <td class="right">$0.00</td>
+        <td class="right">${{ $dinero($g['descargo_nulas']) }}</td>
+      </tr>
+      @endif
       @unless($tipo)
       <tr>
-        <td colspan="6" class="right"><strong>SUBTOTAL {{ mb_strtoupper($rs->first()->tipoEspecie->nombre) }}:</strong></td>
-        <td class="right"><strong>{{ number_format($rs->sum('cantidad')) }}</strong></td>
-        <td class="right"><strong>${{ number_format($rs->sum('monto_cobrado'), 2) }}</strong></td>
-        <td class="right"><strong>${{ $dinero($rs->sum($descargo)) }}</strong></td>
+        <td colspan="6" class="right"><strong>SUBTOTAL {{ mb_strtoupper($g['tipo']->nombre) }}:</strong></td>
+        <td class="right"><strong>{{ number_format($cantidad($g)) }}</strong></td>
+        <td class="right"><strong>${{ number_format($g['realizaciones']->sum('monto_cobrado'), 2) }}</strong></td>
+        <td class="right"><strong>${{ $dinero($descargoG($g)) }}</strong></td>
       </tr>
       @endunless
     @endforeach
@@ -68,9 +82,9 @@
   <tfoot>
     <tr>
       <td colspan="6" class="right">TOTAL:</td>
-      <td class="right">{{ number_format($realizaciones->sum('cantidad')) }}</td>
+      <td class="right">{{ number_format($grupos->sum($cantidad)) }}</td>
       <td class="right">${{ number_format($realizaciones->sum('monto_cobrado'), 2) }}</td>
-      <td class="right">${{ $dinero($realizaciones->sum($descargo)) }}</td>
+      <td class="right">${{ $dinero($grupos->sum($descargoG)) }}</td>
     </tr>
   </tfoot>
 </table>

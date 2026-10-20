@@ -22,14 +22,14 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * Datos iniciales de especies municipales, de noviembre 2025 a marzo 2026, tomados de los libros de Tesoreria
- * (database/data/especies_nov2025_mar2026.csv). Todo entra por la bodega: las existencias de cada distrito al
+ * Datos iniciales de especies municipales, de noviembre 2025 a junio 2026, tomados de los libros de Tesoreria
+ * (database/data/especies_nov2025_jun2026.csv). Todo entra por la bodega: las existencias de cada distrito al
  * 31/10/2025 y cada compra al M.H. se registran como compra y se trasladan el mismo dia al distrito. Despues van
- * el traslado entre distritos, las cajas de Metapan, las realizaciones y las nulas. Solo corre con las tablas vacias.
+ * los traslados entre distritos, las cajas de Metapan, las realizaciones y las nulas. Solo corre con las tablas vacias.
  */
 class DatosInicialesEspeciesSeeder extends Seeder
 {
-    public const ARCHIVO = 'data/especies_nov2025_mar2026.csv';
+    public const ARCHIVO = 'data/especies_nov2025_jun2026.csv';
 
     private int $usuario;
     private array $distritos;

@@ -1,15 +1,16 @@
 {{-- PDF: EXISTENCIAS EN BODEGA - lotes con stock disponible, valuados a precio de venta --}}
 @php
-  $tituloReporte    = 'Libro de Existencias en Bodega';
-  $codigoFormulario = config('especies.codigos.bodega');
+  $tituloReporte      = 'Especies en Bodega';
+  $encabezadoCaja     = 'ESPECIES EN BODEGA';
+  $codigoFormulario   = config('especies.codigos.bodega');
+  $versionFormulario  = config('especies.versiones.bodega');
+  $vigenciaFormulario = config('especies.vigencia');
+  $encabezadoCentrado = true;
+  $sinFechaGeneracion = true;
+  $lineasTitulo = ['ALCALDIA MUNICIPAL DE SANTA ANA NORTE', 'BODEGA CENTRAL', mb_strtoupper($tipo->nombre),
+                   'DEL ' . $desde->format('d/m/Y') . ' AL ' . $hasta->format('d/m/Y')];
 @endphp
 @include('frontend.admin.especies.reportes.pdf.header')
-
-<p class="label">
-  Tipo de especie: {{ $tipo->nombre }}
-  &nbsp;|&nbsp; Del {{ $desde->format('d/m/Y') }} al {{ $hasta->format('d/m/Y') }}
-</p>
-<br>
 
 @if($lotes->isEmpty())
   <p class="center">Sin existencias disponibles en bodega para los filtros seleccionados.</p>

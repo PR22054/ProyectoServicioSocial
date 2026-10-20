@@ -55,13 +55,14 @@ class DistritoConfigController extends Controller
             'tipo_especie_id' => 'required|exists:tipo_especies,id',
             'titulo_libro'    => 'nullable|string|max:150',
             'titulo_reporte'  => 'nullable|string|max:150',
+            'titulo_realizaciones' => 'nullable|string|max:150',
             'orden'           => 'nullable|integer|min:0|max:999',
         ], ['tipo_especie_id.required' => 'Seleccione un tipo de especie.']);
 
         DistritoTipoEspecie::updateOrCreate(
             ['distrito_id' => $distrito->id, 'tipo_especie_id' => $datos['tipo_especie_id']],
             ['titulo_libro' => $datos['titulo_libro'] ?? null, 'titulo_reporte' => $datos['titulo_reporte'] ?? null,
-             'orden' => (int) ($datos['orden'] ?? 0), 'nulas_en_realizaciones' => $request->boolean('nulas_en_realizaciones')]);
+             'titulo_realizaciones' => $datos['titulo_realizaciones'] ?? null, 'orden' => (int) ($datos['orden'] ?? 0), 'nulas_en_realizaciones' => $request->boolean('nulas_en_realizaciones')]);
 
         return back()->with('success', 'Tipo guardado.');
     }
@@ -82,6 +83,10 @@ class DistritoConfigController extends Controller
             'orden'             => 'nullable|integer|min:0|max:999',
             'descripcion_nulas' => 'nullable|string|max:150',
             'orden_nulas'       => 'nullable|integer|min:0|max:999',
+            'descripcion_realizaciones' => 'nullable|string|max:150',
+            'orden_realizaciones'       => 'nullable|integer|min:0|max:999',
+            'nulas_realizaciones'       => 'nullable|string|max:150',
+            'orden_nulas_realizaciones' => 'nullable|integer|min:0|max:999',
         ], ['denominacion_id.required' => 'Seleccione una denominación.']);
 
         DistritoDenominacion::updateOrCreate(
@@ -92,7 +97,11 @@ class DistritoConfigController extends Controller
              'orden'             => (int) ($datos['orden'] ?? 0),
              'descripcion_nulas' => $datos['descripcion_nulas'] ?? null,
              'orden_nulas'       => $datos['orden_nulas'] ?? null,
-             'nulas_con_venta'   => $request->boolean('nulas_con_venta')]);
+             'nulas_con_venta'   => $request->boolean('nulas_con_venta'),
+             'descripcion_realizaciones' => $datos['descripcion_realizaciones'] ?? null,
+             'orden_realizaciones'       => $datos['orden_realizaciones'] ?? null,
+             'nulas_realizaciones'       => $datos['nulas_realizaciones'] ?? null,
+             'orden_nulas_realizaciones' => $datos['orden_nulas_realizaciones'] ?? null]);
 
         return back()->with('success', 'Tarifa guardada. Las realizaciones nuevas se cobran con el precio de venta de la tarifa.');
     }

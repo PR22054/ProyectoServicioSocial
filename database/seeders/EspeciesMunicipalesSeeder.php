@@ -14,6 +14,7 @@ class EspeciesMunicipalesSeeder extends Seeder
             ['nombre' => 'Distrito Masahuat',               'codigo' => 'D02', 'activo' => 1, 'created_at' => now(), 'updated_at' => now()],
             ['nombre' => 'Distrito Santa Rosa Guachipilín', 'codigo' => 'D03', 'activo' => 1, 'created_at' => now(), 'updated_at' => now()],
             ['nombre' => 'Distrito Texistepeque',           'codigo' => 'D04', 'activo' => 1, 'created_at' => now(), 'updated_at' => now()],
+            ['nombre' => 'Distrito Santa Ana Norte',        'codigo' => 'D05', 'activo' => 1, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         DB::table('tipo_especies')->insert([

@@ -1,97 +1,75 @@
-{{-- PDF: REALIZACIONES POR PERIODO - documentos realizados por el distrito, de un tipo o de todos agrupados por tipo,
-     con una fila de NULAS por tipo. DESCARGO = cantidad x costo de la tarifa del distrito, incluidas las nulas --}}
+{{-- PDF: ESPECIES REALIZADAS DEL MES - hoja "ESPECIES MUNICIPALES REALIZADAS" de Tesoreria, con la plantilla del distrito.
+     PRECIO DE VTA. = lo cobrado (en blanco si la especie no se vende); DESCARGOS = cantidad x costo --}}
 @php
-  $tituloReporte    = 'Realizaciones por Período';
-  $codigoFormulario = config('especies.codigos.realizaciones');
-  $descargo = fn($r) => $r->cantidad * (float) ($costos[$r->denominacion_id] ?? 0);
+  $tituloReporte      = 'Especies Realizadas';
+  $encabezadoCaja     = 'CONTROL DE ESPECIES REALIZADAS';
+  $codigoFormulario   = config('especies.codigos.realizaciones');
+  $versionFormulario  = config('especies.versiones.realizaciones');
+  $vigenciaFormulario = config('especies.vigencia');
+  $encabezadoCentrado = true;
+  $sinFechaGeneracion = true;
+  $lineasTitulo = ['ALCALDIA MUNICIPAL DE SANTA ANA NORTE', $distrito->nombre_reporte, 'ESPECIES MUNICIPALES REALIZADAS',
+                   mb_strtoupper("$nombreMes $anio")];
 
-  // al menos dos decimales, y hasta cuatro cuando hacen falta (0.015 x 7673 = 115.095)
+  // montos a 2 decimales (los descargos ya vienen truncados al centavo); el cero se muestra "$ -" como en Tesoreria
   $dinero = function ($v) {
-      [$entero, $dec] = explode('.', rtrim(number_format($v, 4), '0')) + [1 => ''];
-      return $entero . '.' . str_pad($dec, 2, '0');
+      if ($v === null) return '';
+      if (abs($v) < 0.000001) return '$ -';
+      return ($v < 0 ? '-$' : '$') . number_format(abs($v), 2);
   };
-  $n = 0;
-
-  // totales de un grupo: realizado mas nulas (las nulas no cobran)
-  $cantidad   = fn($g) => $g['realizaciones']->sum('cantidad') + $g['nulas'];
-  $descargoG  = fn($g) => $g['realizaciones']->sum($descargo) + $g['descargo_nulas'];
+  // costo con al menos 2 decimales y hasta 4 (0.30, 0.075, 0.0105)
+  $costo = function ($v) {
+      if ($v === null) return '';
+      [$entero, $dec] = explode('.', rtrim(number_format($v, 4), '0')) + [1 => ''];
+      return '$' . $entero . '.' . str_pad($dec, 2, '0');
+  };
 @endphp
 @include('frontend.admin.especies.reportes.pdf.header')
 
-<p class="label">
-  Distrito: {{ $distrito->nombre }} ({{ $distrito->codigo }})
-  &nbsp;|&nbsp; Tipo: {{ $tipo?->nombre ?? 'Todas las especies' }}
-  &nbsp;|&nbsp; Del {{ $desde->format('d/m/Y') }} al {{ $hasta->format('d/m/Y') }}
-</p>
-<br>
-
-@if($grupos->isEmpty())
-  <p class="center">Sin realizaciones ni nulas registradas para los filtros seleccionados.</p>
+@if(empty($grupos))
+  <p class="center">Sin especies registradas para este distrito.</p>
 @else
 <table class="datos">
   <thead>
     <tr>
-      <th>#</th>
-      <th>Fecha</th>
-      <th>Denominación</th>
-      <th class="center">Serie</th>
-      <th class="center">Del</th>
-      <th class="center">Al</th>
-      <th class="right">Cantidad</th>
-      <th class="right">Monto cobrado</th>
-      <th class="right">Descargo</th>
+      <th class="center" style="width:12%">CANTIDAD</th>
+      <th style="width:40%">DESCRIPCION</th>
+      <th class="right" style="width:14%">P.DE COSTO</th>
+      <th class="right" style="width:17%">PRECIO DE VTA.</th>
+      <th class="right" style="width:17%">DESCARGOS</th>
     </tr>
   </thead>
   <tbody>
     @foreach($grupos as $g)
-      @unless($tipo)
-      <tr><td colspan="9" style="background:#e8eff8;"><strong>{{ mb_strtoupper($g['tipo']->nombre) }}</strong></td></tr>
-      @endunless
-      @foreach($g['realizaciones'] as $r)
-      <tr class="{{ $n % 2 == 1 ? 'alt' : '' }}">
-        <td class="center">{{ ++$n }}</td>
-        <td class="center">{{ $r->fecha->format('d/m/Y') }}</td>
-        <td class="center">${{ number_format($r->denominacion->valor ?? 0, 2) }}</td>
-        <td class="center">{{ $r->serie ?: '—' }}</td>
-        <td class="right">{{ number_format($r->numero_inicio) }}</td>
-        <td class="right">{{ number_format($r->numero_fin) }}</td>
-        <td class="right">{{ number_format($r->cantidad) }}</td>
-        <td class="right">${{ number_format($r->monto_cobrado, 2) }}</td>
-        <td class="right">${{ $dinero($descargo($r)) }}</td>
+      <tr><td colspan="5"><strong>{{ $g['titulo'] }}</strong></td></tr>
+      @foreach($g['filas'] as $f)
+      <tr>
+        <td class="center">{{ number_format($f['cantidad']) }}</td>
+        <td>{{ $f['descripcion'] }}</td>
+        <td class="right">{{ $costo($f['costo']) }}</td>
+        <td class="right">{{ $dinero($f['venta']) }}</td>
+        <td class="right">{{ $dinero($f['descargo']) }}</td>
       </tr>
       @endforeach
-      @if($g['nulas'])
       <tr>
-        <td></td>
-        <td colspan="5"><strong>NULAS</strong></td>
-        <td class="right">{{ number_format($g['nulas']) }}</td>
-        <td class="right">$0.00</td>
-        <td class="right">${{ $dinero($g['descargo_nulas']) }}</td>
+        <td colspan="3" class="right"><strong>TOTAL</strong></td>
+        <td class="right"><strong>{{ $dinero($g['total_venta']) }}</strong></td>
+        <td class="right"><strong>{{ $dinero($g['total_descargo']) }}</strong></td>
       </tr>
-      @endif
-      @unless($tipo)
-      <tr>
-        <td colspan="6" class="right"><strong>SUBTOTAL {{ mb_strtoupper($g['tipo']->nombre) }}:</strong></td>
-        <td class="right"><strong>{{ number_format($cantidad($g)) }}</strong></td>
-        <td class="right"><strong>${{ number_format($g['realizaciones']->sum('monto_cobrado'), 2) }}</strong></td>
-        <td class="right"><strong>${{ $dinero($descargoG($g)) }}</strong></td>
-      </tr>
-      @endunless
     @endforeach
   </tbody>
   <tfoot>
     <tr>
-      <td colspan="6" class="right">TOTAL:</td>
-      <td class="right">{{ number_format($grupos->sum($cantidad)) }}</td>
-      <td class="right">${{ number_format($realizaciones->sum('monto_cobrado'), 2) }}</td>
-      <td class="right">${{ $dinero($grupos->sum($descargoG)) }}</td>
+      <td colspan="3" class="right">TOTALES GENERALES</td>
+      <td class="right">{{ $dinero($totalVenta) }}</td>
+      <td class="right">{{ $dinero($totalDescargo) }}</td>
     </tr>
   </tfoot>
 </table>
 
-@if($costos->contains(null))
+@if($faltaCosto)
 <p class="sub" style="margin-top:6px">
-  <strong>Aviso:</strong> hay especies sin precio de costo; su descargo sale en cero.
+  <strong>Aviso:</strong> hay especies realizadas sin precio de costo; su descargo sale en cero.
   Complételo en Configuración &gt; Distritos.
 </p>
 @endif

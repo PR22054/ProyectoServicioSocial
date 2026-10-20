@@ -9,7 +9,8 @@ class DistritoDenominacion extends Model
 {
     protected $table    = 'distrito_denominacion';
     protected $fillable = ['distrito_id', 'denominacion_id', 'descripcion', 'precio_costo', 'precio_venta',
-                           'orden', 'descripcion_nulas', 'orden_nulas', 'nulas_con_venta'];
+                           'orden', 'descripcion_nulas', 'orden_nulas', 'nulas_con_venta',
+                           'descripcion_realizaciones', 'orden_realizaciones', 'nulas_realizaciones', 'orden_nulas_realizaciones'];
     protected $casts    = ['nulas_con_venta' => 'boolean'];
 
     public function distrito()

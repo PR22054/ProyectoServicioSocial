@@ -88,32 +88,49 @@ class CatalogoEspeciesSeeder extends Seeder
             ->whereNull('precio_venta')->update(['precio_venta' => DB::raw('valor')]);
 
         foreach ($this->plantillas() as $codigo => $p) {
-            $distrito = Distrito::where('codigo', $codigo)->firstOrFail();
+            // los distritos nuevos se crean aqui; los cuatro originales vienen de EspeciesMunicipalesSeeder
+            $distrito = Distrito::firstOrCreate(['codigo' => $codigo], ['nombre' => $p['nombre'] ?? $codigo, 'activo' => true]);
             $distrito->update(['nombre_oficial' => $p['nombre_oficial'], 'lugar_firma' => $p['lugar_firma'] ?? null,
                                'saldo_por_valor' => $p['saldo_por_valor'] ?? true]);
 
             $ordenTipo = 0;
-            foreach ($p['tipos'] as $tipo => [$tituloLibro, $tituloReporte, $filas]) {
+            foreach ($p['tipos'] as $tipo => $plantilla) {
+                [$tituloLibro, $tituloReporte, $filas] = $plantilla;
+                // el reporte de realizaciones usa los rotulos del control de saldos si no trae los suyos
+                $tituloReal = $plantilla[3] ?? $tituloReporte;
+                $filasReal  = $plantilla[4] ?? array_values(array_filter($filas, fn($f) => !$f['nulas']));
+
                 DistritoTipoEspecie::updateOrCreate(
                     ['distrito_id' => $distrito->id, 'tipo_especie_id' => $tipos[$tipo]],
-                    ['titulo_libro' => $tituloLibro, 'titulo_reporte' => $tituloReporte, 'orden' => ++$ordenTipo,
-                     'nulas_en_realizaciones' => in_array($tipo, $p['nulas_en_realizaciones'] ?? [])]);
+                    ['titulo_libro' => $tituloLibro, 'titulo_reporte' => $tituloReporte, 'titulo_realizaciones' => $tituloReal,
+                     'orden' => ++$ordenTipo, 'nulas_en_realizaciones' => in_array($tipo, $p['nulas_en_realizaciones'] ?? [])]);
 
                 // Las filas van en el orden del reporte; la de nulas se guarda en la tarifa de su denominacion
                 $tarifas = [];
-                foreach ($filas as $orden => $f) {
-                    $den = Denominacion::where('tipo_especie_id', $tipos[$tipo])->where('valor', $f['valor'])->firstOrFail();
+                $tarifa  = function (float $valor) use (&$tarifas, $tipos, $tipo, $distrito) {
+                    $den = Denominacion::where('tipo_especie_id', $tipos[$tipo])->where('valor', $valor)->firstOrFail();
                     $tarifas[$den->id] ??= ['distrito_id' => $distrito->id, 'denominacion_id' => $den->id,
-                                            'descripcion_nulas' => null, 'orden_nulas' => null, 'nulas_con_venta' => false];
+                        'descripcion' => null, 'precio_costo' => null, 'precio_venta' => null, 'orden' => 0,
+                        'descripcion_nulas' => null, 'orden_nulas' => null, 'nulas_con_venta' => false,
+                        'descripcion_realizaciones' => null, 'orden_realizaciones' => null,
+                        'nulas_realizaciones' => null, 'orden_nulas_realizaciones' => null];
+                    return $den->id;
+                };
+                foreach ($filas as $orden => $f) {
+                    $id = $tarifa($f['valor']);
                     if ($f['nulas']) {
-                        $tarifas[$den->id] += ['descripcion' => null, 'precio_costo' => null, 'precio_venta' => null, 'orden' => 0];
-                        $tarifas[$den->id]['descripcion_nulas'] = $f['descripcion'];
-                        $tarifas[$den->id]['orden_nulas']       = $orden + 1;
-                        $tarifas[$den->id]['nulas_con_venta']   = $f['con_venta'];
+                        $tarifas[$id] = array_merge($tarifas[$id], ['descripcion_nulas' => $f['descripcion'],
+                            'orden_nulas' => $orden + 1, 'nulas_con_venta' => $f['con_venta']]);
                     } else {
-                        $tarifas[$den->id] = array_merge($tarifas[$den->id], ['descripcion' => $f['descripcion'],
+                        $tarifas[$id] = array_merge($tarifas[$id], ['descripcion' => $f['descripcion'],
                             'precio_costo' => $f['costo'], 'precio_venta' => $f['venta'], 'orden' => $orden + 1]);
                     }
+                }
+                foreach ($filasReal as $orden => $f) {
+                    $id = $tarifa($f['valor']);
+                    $tarifas[$id] = array_merge($tarifas[$id], $f['nulas']
+                        ? ['nulas_realizaciones' => $f['descripcion'], 'orden_nulas_realizaciones' => $orden + 1]
+                        : ['descripcion_realizaciones' => $f['descripcion'], 'orden_realizaciones' => $orden + 1]);
                 }
                 foreach ($tarifas as $t) {
                     DistritoDenominacion::updateOrCreate(
@@ -127,7 +144,7 @@ class CatalogoEspeciesSeeder extends Seeder
         }
     }
 
-    /** Plantilla de cada distrito, igual a sus libros y a su reporte "Control de Saldos" (hojas SALDOS de Tesoreria). */
+    /** Plantilla de cada distrito, igual a sus libros, a su "Control de Saldos" (hojas SALDOS) y a sus hojas REALIZADAS. */
     private function plantillas(): array
     {
         // fila del reporte: descripcion, valor de la denominacion, costo y precio de venta (null: no se vende)
@@ -136,12 +153,19 @@ class CatalogoEspeciesSeeder extends Seeder
         // fila de nulas de esa denominacion (en las hojas de saldos siempre va en cero); con venta muestra 0.00
         $nulas = fn(float $valor, string $descripcion = 'NULAS', bool $conVenta = false) =>
             ['nulas' => true, 'valor' => $valor, 'descripcion' => $descripcion, 'con_venta' => $conVenta];
+        // reporte de realizaciones (hojas REALIZADAS): titulo y filas cuando no son los del control de saldos;
+        // la fila de nulas cuenta las anuladas de su denominacion, sin ella se suman a la fila de la denominacion
+        $real      = fn(float $valor, string $descripcion) => ['nulas' => false, 'valor' => $valor, 'descripcion' => $descripcion];
+        $nulasReal = fn(float $valor, string $descripcion = 'NULAS') => ['nulas' => true, 'valor' => $valor, 'descripcion' => $descripcion];
+        $conNulas  = fn(float $valor, string $descripcion) => [$real($valor, $descripcion), $nulasReal($valor)];
 
         $titulos  = ['TITULOS A PERPETUIDAD', 'TITULOS A PERPETUIDAD EN CEMENTERIOS', [$fila(0.53, 'TITULOS', 0.53)]];
         $guias    = ['GUIAS DE CONDUCCION DE GANADO MAYOR Y MENOR', 'GUIAS DE CONDUCCION DE GANADO MAYOR Y MENOR',
                      [$fila(0.20, 'GUIAS DE CONDUCCION DE GANADO', 0.20)]];
         $continua = [$fila(0.10, 'FÓRMULAS 1-ISAM CONTINUAS', 0.10)];
         $vialidad343 = [$fila(3.43, 'DE 30 COLONES $ 3.43', 0.10, 3.43), $nulas(3.43, 'DE $3.43 NULAS', true)];
+        $continuaReal    = ['FORMULAS 1-I SAM FORMA CONTINUA', [$real(0.10, 'FÓRMULAS 1-ISAM CONTINUA')]];
+        $vialidad343Real = ['FONDO DE VIALIDAD', [$real(3.43, 'DE $ 3.43'), $nulasReal(3.43, 'DE $3.43 NULAS')]];
 
         return [
             'D01' => [
@@ -154,6 +178,9 @@ class CatalogoEspeciesSeeder extends Seeder
                     'Fondo Vialidad' => ['FONDO DE VIALIDAD', 'FONDO DE VIALIDAD', [
                         $fila(0.57, 'DE 5 COLONES $0.57', 0.075, 0.57), $fila(1.14, 'DE $1.14', 0.15, 1.14),
                         $fila(3.43, 'DE 30 COLONES $ 3.43', 0.10, 3.43),
+                    ], 'FONDO DE VIALIDAD', [
+                        $real(0.57, 'DE $0.57'), $real(1.14, 'DE $1.14'), $real(3.43, 'DE $ 3.43'),
+                        $nulasReal(0.57, 'DE $0.57 NULAS'), $nulasReal(1.14, 'DE $1.14 NULAS'), $nulasReal(3.43, 'DE $3.43 NULAS'),
                     ]],
                     'Tiquetes de Mercado' => ['TIQUETES DE MERCADO', 'TIQUETES DE MERCADO', [
                         $fila(0.12, 'DE $0.12', 0.0105, 0.12), $fila(0.15, 'DE $0.15', 0.015, 0.15),
@@ -164,10 +191,10 @@ class CatalogoEspeciesSeeder extends Seeder
                     ]],
                     'Cartas de Venta Continua' => ['CARTAS DE VENTA', 'CARTAS DE VENTA', [
                         $fila(0.15, 'CARTAS DE VENTA', 0.15),
-                    ]],
+                    ], 'CARTAS DE VENTA', $conNulas(0.15, 'CARTAS DE VENTA')],
                     'Tarjetas para Carnet de Identificación' => ['TARJETAS PARA CARNET DE IDENTIFICACIÓN', 'TARJETAS CARNET DE MENORES', [
                         $fila(0.30, 'DE $3.15', 0.30, 3.15),
-                    ]],
+                    ], 'TARJETAS PARA CARNET DE IDENTIFICACIÓN', $conNulas(0.30, 'DE $3.15')],
                     'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM', 'FORMULAS 1-I SAM', [
                         $fila(0.10, 'FÓRMULAS CONTINUAS', 0.10),
                     ]],
@@ -177,25 +204,27 @@ class CatalogoEspeciesSeeder extends Seeder
             ],
             'D02' => [
                 'nombre_oficial' => 'DISTRITO DE MASAHUAT',
-                'nulas_en_realizaciones' => ['Cartas de Venta', 'Cartas de Venta Continua', 'Fórmulas 1-ISAM Continua'],
+                'nulas_en_realizaciones' => ['Cartas de Venta', 'Cartas de Venta Continua', 'Fórmulas 1-ISAM Continua', 'Guías de Conducción de Ganado'],
                 'tipos'          => [
                     'Fondo Vialidad' => ['FONDO DE VIALIDAD', 'FONDO DE VIALIDAD', [
                         $fila(0.57, 'DE 5 COLONES $0.57', 0.10, 0.57), $fila(3.43, 'DE 30 COLONES $ 3.43', 0.10, 3.43),
                         $nulas(0.57, 'DE $0.57 NULAS', true), $nulas(3.43, 'DE $3.43 NULAS', true),
+                    ], 'FONDO DE VIALIDAD', [
+                        $real(0.57, 'DE $0.57'), $real(3.43, 'DE $ 3.43'), $nulasReal(3.43, 'DE $3.43 NULAS'), $nulasReal(0.57, 'DE $0.57 NULAS'),
                     ]],
                     'Cartas de Venta' => ['CARTAS DE VENTA', 'CARTAS DE VENTA', [
                         $fila(0.15, 'CARTAS DE VENTA', 0.15),
-                    ]],
+                    ], 'CARTAS DE VENTA', $conNulas(0.15, 'CARTAS DE VENTA')],
                     'Cartas de Venta Continua' => ['CARTA DE VENTA CONTINUA', 'CARTAS DE VENTA CONTINUAS', [
                         $fila(0.15, 'CARTAS DE VENTA', 0.15),
-                    ]],
+                    ], 'CARTAS DE VENTA CONTINUAS', $conNulas(0.15, 'CARTAS DE VENTA')],
                     'Tarjetas para Carnet de Identificación' => ['TARJETAS PARA CARNET DE IDENTIFICACIÓN', 'TARJETAS PARA CARNET DE IDENTIFICACION', [
                         $fila(0.30, 'TARJETAS PARA IDENTIFICACION', 0.30),
-                    ]],
+                    ], 'TARJETAS PARA CARNET DE IDENTIFICACIÓN', $conNulas(0.30, 'TARJETAS PARA IDENTIFICACION')],
                     'Fórmulas 1-ISAM Plana' => ['FORMULAS 1-ISAM FORMA PLANA', 'FORMULAS 1-I SAM FORMA PLANA', [
                         $fila(0.06, 'FÓRMULAS 1-ISAM FORMA PLANA', 0.06),
                     ]],
-                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM CONTINUA', 'FORMULAS 1-I SAM CONTINUA', $continua],
+                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM CONTINUA', 'FORMULAS 1-I SAM CONTINUA', $continua, ...$continuaReal],
                     'Títulos a Perpetuidad' => $titulos,
                     'Boletos de Cobro de Material Pétreo' => ['BOLETOS DE COBRO DE MATERIAL PETREO', 'BOLETOS DE COBRO DE MATERIAL PETREO', [
                         $fila(0.06, 'MATERIAL PETREO', 0.06),
@@ -205,49 +234,65 @@ class CatalogoEspeciesSeeder extends Seeder
                     ]],
                     'Tarjetas de Empresa' => ['TARJETAS DE EMPRESA', 'TARJETAS DE EMPRESAS', [
                         $fila(0.26, 'TARJETAS DE EMPRESAS', 0.26),
-                    ]],
+                    ], 'TARJETAS DE EMPRESA', [$real(0.26, 'TARJETAS DE EMPRESA')]],
                     'Guías de Conducción de Ganado' => $guias,
                 ],
             ],
             'D03' => [
                 'nombre_oficial' => 'DISTRITO DE SANTA ROSA GUACHIPILIN',
-                'nulas_en_realizaciones' => ['Cartas de Venta Continua', 'Títulos a Perpetuidad'],
+                'nulas_en_realizaciones' => ['Cartas de Venta Continua', 'Títulos a Perpetuidad', 'Guías de Conducción de Ganado'],
                 'tipos'          => [
-                    'Fondo Vialidad' => ['FONDO DE VIALIDAD', 'FONDO DE VIALIDAD', $vialidad343],
+                    'Fondo Vialidad' => ['FONDO DE VIALIDAD', 'FONDO DE VIALIDAD', $vialidad343, ...$vialidad343Real],
                     'Tiquetes de Mercado' => ['TIQUETES DE MERCADO', 'TIQUETES DE MERCADO', [
                         $fila(0.15, 'DE $0.15', 0.015, 0.15), $fila(1.00, 'DE $1.00', 0.015, 1.00),
                     ]],
                     'Cartas de Venta Continua' => ['CARTAS DE VENTA', 'CARTAS DE VENTA', [
                         $fila(0.15, 'CARTAS DE VENTA', 0.15),
-                    ]],
-                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM', 'FORMULAS 1-I SAM CONTINUA', $continua],
+                    ], 'CARTAS DE VENTA', $conNulas(0.15, 'CARTAS DE VENTA')],
+                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM', 'FORMULAS 1-I SAM CONTINUA', $continua, ...$continuaReal],
                     'Títulos a Perpetuidad'         => $titulos,
                     'Guías de Conducción de Ganado' => $guias,
+                    'Tarjetas para Carnet de Identificación' => ['TARJETAS PARA CARNET DE IDENTIFICACIÓN', 'TARJETAS PARA CARNET DE IDENTIFICACIÓN', [
+                        $fila(0.30, 'TARJETAS PARA IDENTIFICACION', 0.30),
+                    ]],
                 ],
             ],
             'D04' => [
                 'nombre_oficial'  => 'DISTRITO DE TEXISTEPEQUE',
                 'saldo_por_valor' => false,   // su libro agrega lo que entra al final del saldo
-                'nulas_en_realizaciones' => ['Cartas de Venta Continua'],
+                'nulas_en_realizaciones' => ['Cartas de Venta Continua', 'Tarjetas para Carnet de Identificación', 'Guías de Conducción de Ganado'],
                 'tipos'           => [
-                    'Fondo Vialidad' => ['FONDO DE VIALIDAD', 'FONDO DE VIALIDAD', $vialidad343],
+                    'Fondo Vialidad' => ['FONDO DE VIALIDAD', 'FONDO DE VIALIDAD', $vialidad343, ...$vialidad343Real],
                     'Tiquetes de Mercado' => ['TIQUETES DE MERCADO', 'TIQUETES DE MERCADO', [
                         $fila(0.25, 'DE $0.25', 0.015, 0.25), $fila(1.00, 'DE $1.00', 0.015, 1.00),
                     ]],
                     'Tarjetas de Control de Mercado' => ['TARJETAS DE CONTROL DE MERCADO', 'TARJETAS DE CONTROL DE MERCADO', [
                         $fila(0.30, 'TARJETAS DE CONTROL DE MERCADO', 0.30),
-                    ]],
+                    ], 'TARJETAS DE CONTROL DE MERCADO', $conNulas(0.30, 'TARJETAS DE CONTROL DE MERCADO')],
                     'Cartas de Venta Continua' => ['CARTAS DE VENTA FORMA CONTINUA', 'CARTA DE VENTA CONTINUA', [
                         $fila(0.15, 'CARTAS DE VENTA', 0.15),
-                    ]],
+                    ], 'CARTA DE VENTA CONTINUA', $conNulas(0.15, 'CARTAS DE VENTA')],
                     'Carnet de Menores' => ['CARNET DE MENORES', 'CARNET DE IDENTIDAD DE MENORES', [
                         $fila(0.09, 'JUEGO DE CARTULINA', 0.09, 2.00), $fila(0.06, 'JUEGO DE CARTULINA', 0.06),
-                    ]],
+                    ], 'CARNET DE IDENTIDAD DE MENORES', [...$conNulas(0.09, 'JUEGO DE CARTULINA'), ...$conNulas(0.06, 'JUEGO DE CARTULINA')]],
+                    'Tarjetas para Carnet de Identificación' => ['TARJETAS PARA CARNET DE IDENTIFICACIÓN', 'TARJETAS PARA CARNET DE IDENTIFICACION', [
+                        $fila(0.30, 'TARJETAS PARA IDENTIFICACION', 0.30, 5.00),
+                    ], 'TARJETA PARA CARNET DE IDENTIFICACION', $conNulas(0.30, 'TARJETAS PARA IDENTIFICACION')],
                     'Avisos de Cobro Común' => ['AVISOS DE COBRO COMUN', 'AVISOS DE COBRO COMUN', [
                         $fila(0.10, 'AVISOS DE COBRO COMUN', 0.10),
                     ]],
-                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM', 'FORMULAS 1-I SAM CONTINUA', $continua],
+                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM', 'FORMULAS 1-I SAM CONTINUA', $continua, ...$continuaReal],
                     'Títulos a Perpetuidad' => $titulos,
+                    'Guías de Conducción de Ganado' => $guias,
+                ],
+            ],
+            'D05' => [
+                'nombre'         => 'Distrito Santa Ana Norte',
+                'nombre_oficial' => 'DISTRITO DE SANTA ANA NORTE',
+                'tipos'          => [
+                    'Fórmulas 1-ISAM Continua' => ['FORMULAS 1-ISAM', 'FORMULAS 1-I SAM', [
+                        $fila(0.10, 'FÓRMULAS CONTINUAS', 0.10),
+                    ]],
                 ],
             ],
         ];

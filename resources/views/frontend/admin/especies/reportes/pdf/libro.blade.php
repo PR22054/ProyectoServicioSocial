@@ -5,23 +5,20 @@
 @php
   $tituloReporte      = 'Libro de Especies Municipales';
   $codigoFormulario   = config('especies.codigos.libro');
-  $versionFormulario  = config('especies.libro.version');
-  $vigenciaFormulario = config('especies.libro.vigencia');
-  $encabezadoCaja     = 'REPORTE DE LIBRO DE ESPECIES MUNICIPALES';
+  $versionFormulario  = config('especies.versiones.libro');
+  $vigenciaFormulario = config('especies.vigencia');
+  $encabezadoCaja     = 'LIBRO DE ESPECIES MUNICIPALES';
+  $encabezadoCentrado = true;
+  $sinFechaGeneracion = true;
+  // con filtro de denominacion, el titulo del tipo la indica
+  $lineasTitulo = ['ALCALDIA MUNICIPAL DE SANTA ANA NORTE', $distrito->nombre_reporte,
+                   mb_strtoupper($titulo) . ($denomFiltro ? ' - ' . $denomFiltro->etiqueta : ''), mb_strtoupper("$nombreMes $anio")];
 
   $columnas = $unidades ? 4 : 5;
   $num      = fn($v) => $unidades ? number_format($v) : number_format($v, 2);
   $fecha    = fn($f) => $f ? $f->format('d/m/Y') : '';
 @endphp
 @include('frontend.admin.especies.reportes.pdf.header')
-
-<p class="label">
-  Distrito: {{ $distrito->nombre }} ({{ $distrito->codigo }})
-  &nbsp;|&nbsp; Tipo: {{ $tipo->nombre }}
-  @if($denomFiltro)&nbsp;|&nbsp; Denominación: {{ $denomFiltro->etiqueta }}@endif
-  &nbsp;|&nbsp; Del {{ $desde->format('d/m/Y') }} al {{ $hasta->format('d/m/Y') }}
-</p>
-<br>
 
 <table class="datos">
   <thead>
@@ -97,7 +94,7 @@
   </tbody>
 </table>
 
-@include('frontend.admin.especies.reportes.pdf.firma')
+@include('frontend.admin.especies.reportes.pdf.firma', ['pie' => null])
 
 </body>
 </html>

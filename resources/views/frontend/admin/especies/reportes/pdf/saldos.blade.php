@@ -1,19 +1,21 @@
-{{-- PDF: CONTROL DE SALDOS - existencias del distrito al final del periodo, con la plantilla del distrito.
+{{-- PDF: CONTROL DE SALDOS - existencias del distrito al final del mes, con la plantilla del distrito.
      PRECIO DE VTA. = existencia x precio de venta (en blanco si no se vende); EXISTENCIAS = existencia x costo --}}
 @php
-  $tituloReporte    = 'Control de Saldos';
-  $codigoFormulario = config('especies.codigos.saldos');
+  $tituloReporte      = 'Control de Saldos';
+  $encabezadoCaja     = 'CONTROL DE SALDOS';
+  $codigoFormulario   = config('especies.codigos.saldos');
+  $versionFormulario  = config('especies.versiones.saldos');
+  $vigenciaFormulario = config('especies.vigencia');
+  $encabezadoCentrado = true;
+  $sinFechaGeneracion = true;
+  $lineasTitulo = ['ALCALDIA MUNICIPAL DE SANTA ANA NORTE', $distrito->nombre_reporte,
+                   'ESPECIES MUNICIPALES SALDOS A ' . mb_strtoupper($nombreMes) . ' DE ' . $hasta->year, 'CONTROL DE SALDOS'];
 
-  // montos a 2 decimales redondeados como Excel: primero a 15 cifras y luego mitad hacia arriba
-  // (340187 x 0.015 = 5102.805 -> 5,102.81); los totales suman los montos sin redondear
+  // montos a 2 decimales (ya vienen truncados al centavo); el cero se muestra "$ -" como en Tesoreria
   $dinero = function ($v) {
       if ($v === null) return '';
-      $s = sprintf('%.15g', abs($v));
-      if (stripos($s, 'e') !== false) return '$' . number_format($v, 2);
-      [$entero, $dec] = explode('.', $s) + [1 => ''];
-      $dec      = str_pad($dec, 3, '0');
-      $centavos = (int) ($entero . substr($dec, 0, 2)) + ($dec[2] >= '5' ? 1 : 0);
-      return ($v < 0 ? '-$' : '$') . number_format(intdiv($centavos, 100)) . '.' . str_pad($centavos % 100, 2, '0', STR_PAD_LEFT);
+      if (abs($v) < 0.000001) return '$ -';
+      return ($v < 0 ? '-$' : '$') . number_format(abs($v), 2);
   };
   // costo con al menos 2 decimales y hasta 4 (0.30, 0.075, 0.0105)
   $costo = function ($v) {
@@ -24,15 +26,8 @@
 @endphp
 @include('frontend.admin.especies.reportes.pdf.header')
 
-<p class="label">
-  Distrito: {{ $distrito->nombre }} ({{ $distrito->codigo }})
-  &nbsp;|&nbsp; Tipo: Todas las especies
-  &nbsp;|&nbsp; Del {{ $desde->format('d/m/Y') }} al {{ $hasta->format('d/m/Y') }}
-</p>
-<br>
-
 @if(empty($grupos))
-  <p class="center">Sin especies registradas para este distrito en el periodo.</p>
+  <p class="center">Sin especies registradas para este distrito en el mes.</p>
 @else
 <table class="datos">
   <thead>
@@ -60,7 +55,7 @@
         <td class="center"><strong>TOTAL</strong></td>
         <td></td>
         <td></td>
-        <td class="right"><strong>{{ $dinero($g['total_venta']) }}</strong></td>
+        <td class="right"><strong>{{ $dinero($g['total_venta'] ?? 0) }}</strong></td>
         <td class="right"><strong>{{ $dinero($g['total_existencias']) }}</strong></td>
       </tr>
     @endforeach

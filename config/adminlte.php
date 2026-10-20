@@ -393,7 +393,7 @@ return [
                 ['text' => 'Libro de Especies',            'url' => 'admin/especies/reportes/libro',         'icon' => 'fas fa-fw fa-book',         'can' => 'shared-access'],
                 ['text' => 'Existencias en Bodega',        'url' => 'admin/especies/reportes/bodega',        'icon' => 'fas fa-fw fa-boxes',        'can' => 'shared-access'],
                 ['text' => 'Existencias por Distrito',     'url' => 'admin/especies/reportes/distritos',     'icon' => 'fas fa-fw fa-map',          'can' => 'shared-access'],
-                ['text' => 'Realizaciones por Periodo',    'url' => 'admin/especies/reportes/realizaciones', 'icon' => 'fas fa-fw fa-receipt',      'can' => 'shared-access'],
+                ['text' => 'Especies Realizadas',          'url' => 'admin/especies/reportes/realizaciones', 'icon' => 'fas fa-fw fa-receipt',      'can' => 'shared-access'],
                 ['text' => 'Historial traslados',          'url' => 'admin/especies/reportes/traslados',     'icon' => 'fas fa-fw fa-exchange-alt', 'can' => 'shared-access'],
                 ['text' => 'Reporte Mensual por Distrito', 'url' => 'admin/especies/reportes/mensual',       'icon' => 'fas fa-fw fa-calendar-alt', 'can' => 'shared-access'],
                 ['text' => 'Consolidado Anual',            'url' => 'admin/especies/reportes/anual',         'icon' => 'fas fa-fw fa-table',        'can' => 'shared-access'],

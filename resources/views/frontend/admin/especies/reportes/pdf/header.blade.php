@@ -1,6 +1,7 @@
 {{-- ENCABEZADO COMPARTIDO PARA TODOS LOS PDF DE REPORTES - REQUIERE $tituloReporte.
      Opcionales: $codigoFormulario, $versionFormulario, $vigenciaFormulario, $encabezadoCaja,
-     $sinRecuadro (sin logo ni codigo) y $sinNit (sin las lineas de alcaldia y NIT) --}}
+     $encabezadoCentrado (codigo, version y vigencia centrados), $sinRecuadro (sin logo ni codigo),
+     $lineasTitulo (lineas centradas en lugar de alcaldia y NIT) y $sinNit (sin las lineas de alcaldia y NIT) --}}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -36,24 +37,30 @@
       <img src="{{ public_path('images/encabezado-constancia.png') }}" style="width:45%; max-height:50px;">
     </td>
     <td rowspan="3" style="width:32%; text-align:center; font-weight:bold; font-size:13px; line-height:1.6;">
-      @isset($encabezadoCaja){{ $encabezadoCaja }}@else REPORTE DE<br>{{ strtoupper($tituloReporte) }}@endisset
+      @isset($encabezadoCaja){{ $encabezadoCaja }}@else REPORTE DE<br>{{ mb_strtoupper($tituloReporte) }}@endisset
     </td>
-    <td style="font-weight:bold;">Código:</td>
-    <td>{{ $codigoFormulario ?? config('especies.codigos.otros') }}</td>
+    @php($alinear = ($encabezadoCentrado ?? false) ? 'text-align:center;' : '')
+    <td style="font-weight:bold; {{ $alinear }}">Código:</td>
+    <td style="{{ $alinear }}">{{ $codigoFormulario ?? config('especies.codigos.otros') }}</td>
   </tr>
   <tr>
-    <td style="font-weight:bold;">Versión:</td>
-    <td>{{ $versionFormulario ?? '001' }}</td>
+    <td style="font-weight:bold; {{ $alinear }}">Versión:</td>
+    <td style="{{ $alinear }}">{{ $versionFormulario ?? '001' }}</td>
   </tr>
   <tr>
-    <td style="font-weight:bold;">Fecha de<br>vigencia:</td>
-    <td>{{ $vigenciaFormulario ?? '11/11/2025' }}</td>
+    <td style="font-weight:bold; {{ $alinear }}">Fecha de<br>vigencia:</td>
+    <td style="{{ $alinear }}">{{ $vigenciaFormulario ?? config('especies.vigencia') }}</td>
   </tr>
 </table>
 @endunless
 
-@unless($sinNit ?? false)
+@isset($lineasTitulo)
+@foreach($lineasTitulo as $linea)
+<p class="titulo" style="font-size:11px;">{{ $linea }}</p>
+@endforeach
+<br>
+@elseif(!($sinNit ?? false))
 <p class="titulo">ALCALDIA MUNICIPAL DE SANTA ANA NORTE</p>
 <p class="titulo">NIT: 0214-010524-101-5</p>
 <br>
-@endunless
+@endisset

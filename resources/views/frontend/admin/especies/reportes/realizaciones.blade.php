@@ -1,9 +1,9 @@
 @extends('frontend.layouts.admin')
-@section('page_title', 'Reporte: Realizaciones por Período')
+@section('page_title', 'Reporte: Especies Realizadas')
 
 @section('page_content')
 
-{{-- FILTROS PARA GENERAR EL REPORTE: REALIZACIONES POR PERIODO --}}
+{{-- FILTROS PARA GENERAR EL REPORTE: ESPECIES REALIZADAS --}}
 @if($errors->any())
 <div class="alert alert-danger py-2">
     @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
@@ -11,7 +11,7 @@
 @endif
 
 <div class="card">
-    <div class="card-header"><h3 class="card-title">Filtros — Realizaciones por Período</h3></div>
+    <div class="card-header"><h3 class="card-title">Filtros — Especies Realizadas</h3></div>
     <div class="card-body">
         <form method="GET" action="{{ route('admin.especies.reportes.realizaciones') }}" target="_blank">
             <input type="hidden" name="generar" value="1">
@@ -45,20 +45,31 @@
                 </div>
                 <div class="col-md-2">
                     <div class="form-group">
-                        <label>Fecha desde <span class="text-danger">*</span></label>
-                        <input type="date" name="fecha_desde" class="form-control @error('fecha_desde') is-invalid @enderror"
-                               value="{{ request('fecha_desde') }}" required>
+                        <label>Mes <span class="text-danger">*</span></label>
+                        <select name="mes" class="form-control @error('mes') is-invalid @enderror" required>
+                            <option value="">— Seleccione mes —</option>
+                            @foreach(['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'] as $i => $m)
+                                <option value="{{ $i+1 }}" {{ request('mes') == $i+1 ? 'selected' : '' }}>{{ $m }}</option>
+                            @endforeach
+                        </select>
                     </div>
                 </div>
                 <div class="col-md-2">
                     <div class="form-group">
-                        <label>Fecha hasta <span class="text-danger">*</span></label>
-                        <input type="date" name="fecha_hasta" class="form-control @error('fecha_hasta') is-invalid @enderror"
-                               value="{{ request('fecha_hasta', date('Y-m-d')) }}" required>
+                        <label>Año <span class="text-danger">*</span></label>
+                        <input type="number" name="anio" class="form-control @error('anio') is-invalid @enderror"
+                               value="{{ request('anio', date('Y')) }}" min="2020" required>
                     </div>
                 </div>
             </div>
             <div class="row mt-1">
+                <div class="col-md-6 d-flex align-items-center">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input" id="detallado" name="detallado" value="1" {{ request('detallado') ? 'checked' : '' }}>
+                        <label class="custom-control-label" for="detallado">Reporte detallado
+                            <small class="text-muted">(cada realización y nula con su fecha, serie y rango)</small></label>
+                    </div>
+                </div>
                 <div class="col-md-3 ml-auto">
                     <button type="submit" class="btn btn-primary btn-block">
                         <i class="fas fa-file-pdf mr-1"></i> Generar reporte

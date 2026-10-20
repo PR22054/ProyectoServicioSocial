@@ -31,16 +31,20 @@
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label>Fecha desde <span class="text-danger">*</span></label>
-                        <input type="date" name="fecha_desde" class="form-control @error('fecha_desde') is-invalid @enderror"
-                               value="{{ request('fecha_desde', date('Y-01-01')) }}" required>
+                        <label>Mes <span class="text-danger">*</span></label>
+                        <select name="mes" class="form-control @error('mes') is-invalid @enderror" required>
+                            <option value="">— Seleccione mes —</option>
+                            @foreach(['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'] as $i => $m)
+                                <option value="{{ $i+1 }}" {{ request('mes') == $i+1 ? 'selected' : '' }}>{{ $m }}</option>
+                            @endforeach
+                        </select>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label>Fecha hasta <span class="text-danger">*</span></label>
-                        <input type="date" name="fecha_hasta" class="form-control @error('fecha_hasta') is-invalid @enderror"
-                               value="{{ request('fecha_hasta', date('Y-m-d')) }}" required>
+                        <label>Año <span class="text-danger">*</span></label>
+                        <input type="number" name="anio" class="form-control @error('anio') is-invalid @enderror"
+                               value="{{ request('anio', date('Y')) }}" min="2020" required>
                     </div>
                 </div>
             </div>

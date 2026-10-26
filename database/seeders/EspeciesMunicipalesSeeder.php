@@ -5,8 +5,10 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
+//distritos, tipos de especie y denominaciones de vialidad de la instalacion inicial
 class EspeciesMunicipalesSeeder extends Seeder
 {
+    //inserta los datos base
     public function run(): void
     {
         DB::table('distritos')->insert([
@@ -36,7 +38,7 @@ class EspeciesMunicipalesSeeder extends Seeder
             ['nombre' => 'Caja Auxiliar',                          'descripcion' => null,                                      'activo' => 1, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
-        // denominaciones de Fondo Vialidad (tipo_especie_id = 1)
+        //denominaciones de fondo vialidad (tipo_especie_id = 1)
         $vialidadId = DB::table('tipo_especies')->where('nombre', 'Fondo Vialidad')->value('id');
         DB::table('denominaciones')->insert([
             ['tipo_especie_id' => $vialidadId, 'valor' => 0.57, 'activo' => 1, 'created_at' => now(), 'updated_at' => now()],

@@ -1,17 +1,17 @@
 <?php
 
-// Datos fijos de los formularios oficiales de especies municipales
+//datos fijos de los formularios oficiales de especies municipales
 return [
-    // Codigo de formulario que lleva el encabezado de cada reporte PDF
+    //codigo de formulario que lleva el encabezado de cada reporte PDF
     'codigos' => [
         'libro'         => 'TESO-008-FORM',
         'bodega'        => 'TESO-010-FORM',
         'realizaciones' => 'TESO-002-CONT',
         'saldos'        => 'TESO-004-CONT',
-        'otros'         => 'TESO-000-FORM',   // existencias por distrito, traslados, mensual y consolidado anual
+        'otros'         => 'TESO-000-FORM',   //existencias por distrito, traslados, mensual y consolidado anual
     ],
 
-    // Version de cada formulario (los demas reportes: 001) y fecha de vigencia de todos
+    //version de cada formulario (los demas reportes: 001) y fecha de vigencia de todos
     'versiones' => [
         'libro'         => '001',
         'bodega'        => '000',

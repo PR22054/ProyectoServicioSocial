@@ -1,7 +1,7 @@
-{{-- PDF: LIBRO DE ESPECIES MUNICIPALES (TESO-008-FORM) - mismas secciones, rotulos y columnas que el libro de Tesoreria.
-     Los montos van en EXISTENCIA (los traslados enviados en REALIZACION); el total de cada seccion en SALDO y las
-     realizaciones repiten su total en REALIZACION en la primera fila. Las nulas se descuentan aparte salvo en los
-     libros que las suman a las realizaciones. Los tipos que se llevan en unidades no tienen columna VALOR. --}}
+{{--PDF: LIBRO DE ESPECIES MUNICIPALES (TESO-008-FORM) - mismas secciones, rotulos y columnas que el libro de tesoreria.
+     los montos van en EXISTENCIA (los traslados enviados en REALIZACION); el total de cada seccion en SALDO y las
+     realizaciones repiten su total en REALIZACION en la primera fila. las nulas se descuentan aparte salvo en los
+     libros que las suman a las realizaciones. los tipos que se llevan en unidades no tienen columna VALOR.--}}
 @php
   $tituloReporte      = 'Libro de Especies Municipales';
   $codigoFormulario   = config('especies.codigos.libro');
@@ -10,7 +10,7 @@
   $encabezadoCaja     = 'LIBRO DE ESPECIES MUNICIPALES';
   $encabezadoCentrado = true;
   $sinFechaGeneracion = true;
-  // con filtro de denominacion, el titulo del tipo la indica
+  //con filtro de denominacion, el titulo del tipo la indica
   $lineasTitulo = ['ALCALDIA MUNICIPAL DE SANTA ANA NORTE', $distrito->nombre_reporte,
                    mb_strtoupper($titulo) . ($denomFiltro ? ' - ' . $denomFiltro->etiqueta : ''), mb_strtoupper("$nombreMes $anio")];
 
@@ -33,10 +33,10 @@
   <tbody>
   @foreach($secciones as $s)
     @if($s['tipo'] === 'nulas' && $s['filas'])
-      {{-- el libro asienta las nulas con el rotulo en la primera fila y los totales a la par --}}
+      {{--el libro asienta las nulas con el rotulo en la primera fila y los totales a la par--}}
       @foreach($s['filas'] as $k => $r)
       <tr>
-        <td>{{ $k === 0 ? 'NULAS' : ($r['caja'] ?? '') }}</td>
+        <td>{{ $k === 0 ? 'NULAS' : '' }}</td>
         <td class="right">{{ number_format($r['cantidad']) }}</td>
         @unless($unidades)<td class="right">{{ number_format($r['valor'], 2) }}</td>@endunless
         <td class="right">{{ number_format($r['del']) }}</td>
@@ -74,7 +74,7 @@
 
     @foreach($s['filas'] as $k => $r)
     <tr>
-      <td>{{ $r['caja'] ?? '' }}</td>
+      <td></td>
       <td class="right">{{ number_format($r['cantidad']) }}</td>
       @unless($unidades)<td class="right">{{ number_format($r['valor'], 2) }}</td>@endunless
       <td class="right">{{ number_format($r['del']) }}</td>

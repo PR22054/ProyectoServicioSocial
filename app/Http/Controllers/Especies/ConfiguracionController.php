@@ -8,9 +8,10 @@ use App\Models\TipoEspecie;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+//controlador de configuracion de especies: tipos de especie y denominaciones
 class ConfiguracionController extends Controller
 {
-    // ── Tipos de especie ──────────────────────────────────────────────────────
+    //tipos de especie
 
     public function tipos()
     {
@@ -18,39 +19,38 @@ class ConfiguracionController extends Controller
         return view('frontend.admin.especies.configuracion.tipos', compact('tipos'));
     }
 
+    //valida y guarda un tipo de especie nuevo, al final del orden
     public function storeTipo(Request $request)
     {
         $request->validate([
             'nombre' => 'required|string|max:100|unique:tipo_especies,nombre',
-            'orden'  => 'nullable|integer|min:0|max:999',
         ], [
             'nombre.required' => 'El nombre es obligatorio.',
             'nombre.unique'   => 'Ya existe un tipo con ese nombre.',
             'nombre.max'      => 'El nombre no puede superar los 100 caracteres.',
-            'orden.integer'   => 'El orden debe ser un número entero.',
         ]);
 
+        //el tipo nuevo va al final de las listas y reportes
         TipoEspecie::create([
             'nombre'      => $request->nombre,
             'descripcion' => $request->descripcion,
             'activo'      => $request->boolean('activo'),
             'unidades'    => $request->boolean('unidades'),
-            'orden'       => (int) $request->orden,
+            'orden'       => (int) TipoEspecie::max('orden') + 1,
         ]);
 
         return back()->with('success_tipo', 'Tipo de especie creado correctamente.');
     }
 
+    //actualiza nombre, descripcion, estado y forma de llevar el libro de un tipo
     public function updateTipo(Request $request, TipoEspecie $tipo)
     {
         $request->validate([
             'nombre' => 'required|string|max:100|unique:tipo_especies,nombre,' . $tipo->id,
-            'orden'  => 'nullable|integer|min:0|max:999',
         ], [
             'nombre.required' => 'El nombre es obligatorio.',
             'nombre.unique'   => 'Ya existe un tipo con ese nombre.',
             'nombre.max'      => 'El nombre no puede superar los 100 caracteres.',
-            'orden.integer'   => 'El orden debe ser un número entero.',
         ]);
 
         $tipo->update([
@@ -58,12 +58,12 @@ class ConfiguracionController extends Controller
             'descripcion' => $request->descripcion,
             'activo'      => $request->boolean('activo'),
             'unidades'    => $request->boolean('unidades'),
-            'orden'       => (int) $request->orden,
         ]);
 
         return back()->with('success_tipo', 'Tipo de especie actualizado correctamente.');
     }
 
+    //elimina un tipo de especie si no tiene denominaciones ni movimientos
     public function destroyTipo(TipoEspecie $tipo)
     {
         $enUso = $tipo->denominaciones()->exists()
@@ -78,7 +78,7 @@ class ConfiguracionController extends Controller
         return back()->with('success_tipo', 'Tipo de especie eliminado correctamente.');
     }
 
-    // ── Denominaciones ────────────────────────────────────────────────────────
+    //denominaciones
 
     public function denominaciones()
     {
@@ -88,6 +88,7 @@ class ConfiguracionController extends Controller
         return view('frontend.admin.especies.configuracion.denominaciones', compact('denominaciones', 'tipos'));
     }
 
+    //reglas de validacion compartidas al crear y editar una denominacion
     private function reglasDenominacion(): array
     {
         return [
@@ -99,6 +100,7 @@ class ConfiguracionController extends Controller
         ];
     }
 
+    //mensajes de validacion de las denominaciones
     private function mensajesDenominacion(): array
     {
         return [
@@ -115,6 +117,7 @@ class ConfiguracionController extends Controller
         ];
     }
 
+    //valida y guarda una denominacion nueva
     public function storeDenominacion(Request $request)
     {
         $request->validate($this->reglasDenominacion(), $this->mensajesDenominacion());
@@ -131,11 +134,12 @@ class ConfiguracionController extends Controller
         return back()->with('success_den', 'Denominación creada correctamente.');
     }
 
+    //actualiza una denominacion; el valor no cambia si ya tiene compras o realizaciones
     public function updateDenominacion(Request $request, Denominacion $denominacion)
     {
         $request->validate($this->reglasDenominacion(), $this->mensajesDenominacion());
 
-        // Con movimientos registrados, cambiar tipo o valor reescribiria el historial de los libros
+        //con movimientos registrados, cambiar tipo o valor reescribiria el historial de los libros
         $enUso   = $denominacion->lotes()->exists() || $denominacion->realizaciones()->exists();
         $cambia  = $request->tipo_especie_id != $denominacion->tipo_especie_id
                 || round((float) $request->valor, 2) != round((float) $denominacion->valor, 2);
@@ -157,6 +161,7 @@ class ConfiguracionController extends Controller
         return back()->with('success_den', 'Denominación actualizada correctamente.');
     }
 
+    //denominaciones activas de un tipo, para los selectores que se llenan con AJAX
     public function ajaxDenominaciones(Request $request)
     {
         $dens = Denominacion::where('tipo_especie_id', $request->tipo_especie_id)
@@ -166,6 +171,7 @@ class ConfiguracionController extends Controller
         return response()->json($dens);
     }
 
+    //elimina una denominacion si no tiene compras ni realizaciones
     public function destroyDenominacion(Denominacion $denominacion)
     {
         if ($denominacion->lotes()->exists() || $denominacion->realizaciones()->exists()) {

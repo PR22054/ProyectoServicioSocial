@@ -3,7 +3,7 @@
 
 @section('page_content')
 
-    {{-- alertas --}}
+    {{--alertas--}}
     @if(session('success_den'))
         <div class="alert alert-success alert-dismissible fade show">
             {{ session('success_den') }}
@@ -17,7 +17,7 @@
         </div>
     @endif
 
-    {{-- formulario de creacion --}}
+    {{--formulario de creacion--}}
     <div class="card">
         <div class="card-header"><h3 class="card-title">Nueva denominación</h3></div>
         <div class="card-body">
@@ -26,6 +26,7 @@
                     @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
                 </div>
             @endif
+            {{--formulario para agregar una denominacion--}}
             <form method="POST" action="{{ route('admin.especies.configuracion.denominaciones.store') }}">
                 @csrf
                 <div class="row">
@@ -106,10 +107,12 @@
         </div>
     </div>
 
-    {{-- tabla de denominaciones --}}
+    {{--tabla de denominaciones--}}
     <div class="card">
         <div class="card-header"><h3 class="card-title">Denominaciones registradas ({{ $denominaciones->count() }})</h3></div>
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--tabla de denominaciones con sus acciones--}}
             <table class="table table-striped table-sm mb-0">
                 <thead>
                     <tr>
@@ -162,7 +165,7 @@
                             @endif
                         </td>
                         <td class="text-center">
-                            <button class="btn btn-xs btn-warning"
+                            <button class="btn btn-xs btn-warning" data-toggle="tooltip" title="Editar denominación"
                                     onclick="abrirEditDen({{ $den->id }}, {{ $den->tipo_especie_id }}, {{ Js::from($den->descripcion) }}, {{ $den->valor }}, {{ $den->precio_costo !== null ? $den->precio_costo : 'null' }}, {{ $den->precio_venta !== null ? $den->precio_venta : 'null' }}, {{ $den->activo }}, {{ ($den->lotes_exists || $den->realizaciones_exists) ? 'true' : 'false' }})">
                                 <i class="fas fa-edit"></i>
                             </button>
@@ -171,7 +174,7 @@
                                 @csrf @method('DELETE')
                             </form>
                             <button type="button" class="btn btn-xs btn-danger"
-                                    data-swal-delete data-form="del-den-{{ $den->id }}"
+                                    data-swal-delete data-toggle="tooltip" title="Eliminar denominación" data-form="del-den-{{ $den->id }}"
                                     data-msg="¿Eliminar la denominación ${{ number_format($den->valor, 2) }} de {{ $den->tipoEspecie->nombre }}?">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -182,13 +185,15 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 
-    {{-- modal de edicion --}}
+    {{--modal de edicion--}}
     <div class="modal fade" id="modalEditDen" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
+                {{--ventana para editar una denominacion--}}
                 <form method="POST" id="formEditDen">
                     @csrf @method('PATCH')
                     <div class="modal-header">
@@ -207,7 +212,7 @@
                                     <option value="{{ $t->id }}">{{ $t->nombre }}</option>
                                 @endforeach
                             </select>
-                            {{-- un select deshabilitado no se envia; si esta en uso el tipo viaja en este oculto --}}
+                            {{--un select deshabilitado no se envia; si esta en uso el tipo viaja en este oculto--}}
                             <input type="hidden" name="tipo_especie_id" id="edit_tipo_fijo" disabled>
                         </div>
                         <div class="form-group">
@@ -267,7 +272,9 @@
 @stop
 
 @push('js')
+{{--llena la ventana de edicion--}}
 <script>
+//abre la ventana de edicion con los datos de la denominacion elegida
 function abrirEditDen(id, tipoId, descripcion, valor, precioCosto, precioVenta, activo, enUso) {
     document.getElementById('edit_tipo').value        = tipoId;
     document.getElementById('edit_tipo').disabled     = enUso;

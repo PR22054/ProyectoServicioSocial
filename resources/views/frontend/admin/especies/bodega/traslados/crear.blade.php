@@ -3,7 +3,7 @@
 
 @section('page_content')
 
-{{-- FORMULARIO DE NUEVO TRASLADO: SOPORTA BODEGA→DISTRITO, DISTRITO→BODEGA Y DISTRITO→DISTRITO --}}
+{{--FORMULARIO DE NUEVO TRASLADO: SOPORTA BODEGA A DISTRITO, DISTRITO A BODEGA Y DISTRITO A DISTRITO--}}
     <div class="card">
         <div class="card-header"><h3 class="card-title">Nuevo traslado</h3></div>
         <div class="card-body">
@@ -16,6 +16,7 @@
                 </div>
             @endif
 
+            {{--datos generales del traslado: tipo, origen, destino, fecha y observaciones--}}
             <form method="POST" action="{{ route('admin.especies.bodega.traslado.store') }}">
                 @csrf
 
@@ -83,7 +84,9 @@
 @stop
 
 @push('js')
+{{--muestra los campos de origen y destino segun el tipo de traslado--}}
 <script>
+//muestra u oculta los selectores de distrito segun el tipo de traslado
 function actualizarCampos() {
     const tipo    = document.getElementById('tipo_traslado').value;
     const origen  = document.getElementById('campo_origen');
@@ -92,7 +95,7 @@ function actualizarCampos() {
     origen.style.display  = (tipo === 'distrito_bodega' || tipo === 'distrito_distrito') ? '' : 'none';
     destino.style.display = (tipo === 'bodega_distrito' || tipo === 'distrito_distrito') ? '' : 'none';
 
-    // Required según visibilidad
+    //required segun visibilidad
     origen.querySelector('select').required  = (tipo !== 'bodega_distrito');
     destino.querySelector('select').required = (tipo !== 'distrito_bodega');
 }

@@ -13,9 +13,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+//controlador de bodega: traslados (bodega a distrito, entre distritos y devoluciones), sus detalles y el stock de la bodega
 class BodegaController extends Controller
 {
-    // ── Traslados ─────────────────────────────────────────────────────────────
+    //traslados
 
     public function trasladoHistorial()
     {
@@ -31,6 +32,7 @@ class BodegaController extends Controller
         return view('frontend.admin.especies.bodega.traslados.historial', compact('traslados', 'distritos'));
     }
 
+    //muestra el formulario para registrar un traslado nuevo
     public function trasladoCrear()
     {
         $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
@@ -38,6 +40,7 @@ class BodegaController extends Controller
         return view('frontend.admin.especies.bodega.traslados.crear', compact('distritos', 'tipo'));
     }
 
+    //valida y guarda los datos generales del traslado; las especies se agregan despues como detalles
     public function trasladoStore(Request $request)
     {
         $tipo = $request->tipo;
@@ -77,9 +80,10 @@ class BodegaController extends Controller
             ->with('success', 'Traslado creado. Ahora agregue los detalles.');
     }
 
+    //actualiza fecha, distritos u observaciones del traslado si sus detalles siguen siendo validos
     public function trasladoUpdate(Request $request, Traslado $traslado)
     {
-        // El tipo no se puede cambiar despues de crear; solo fecha, observaciones y districtos
+        //el tipo no se puede cambiar despues de crear; solo fecha, observaciones y distritos
         $tipo  = $traslado->tipo;
         $rules = [
             'fecha'         => 'required|date|before_or_equal:today',
@@ -111,7 +115,7 @@ class BodegaController extends Controller
             $data['origen_distrito_id'] = $request->origen_distrito_id;
         }
 
-        // Cambiar fecha o distritos mueve documentos en el tiempo: se revisan los poseedores de antes y de despues
+        //cambiar fecha o distritos mueve documentos en el tiempo: se revisan los poseedores de antes y de despues
         try {
             DB::transaction(function () use ($traslado, $data) {
                 Inventario::bloquear(...$this->tipos($traslado));
@@ -127,6 +131,7 @@ class BodegaController extends Controller
             ->with('success', 'Traslado actualizado correctamente.');
     }
 
+    //elimina el traslado con sus detalles si ningun movimiento posterior depende de ellos
     public function trasladoDestroy(Traslado $traslado)
     {
         $tieneNulas = DB::table('nulas')
@@ -153,7 +158,7 @@ class BodegaController extends Controller
             ->with('success', 'Traslado eliminado correctamente.');
     }
 
-    // Poseedores que toca el traslado por cada lote: origen y destino (null = bodega)
+    //poseedores que toca el traslado por cada lote: origen y destino (null = bodega)
     private function pares(Traslado $traslado): array
     {
         return $traslado->detalles()->pluck('lote_id')->unique()
@@ -161,12 +166,14 @@ class BodegaController extends Controller
             ->all();
     }
 
+    //tipos de especie que mueve el traslado, para bloquearlos mientras se guarda un cambio
     private function tipos(Traslado $traslado): array
     {
         return $traslado->detalles()->join('lotes', 'lotes.id', '=', 'traslado_detalles.lote_id')
             ->distinct()->pluck('lotes.tipo_especie_id')->all();
     }
 
+    //muestra el traslado con sus detalles
     public function trasladoShow(Traslado $traslado)
     {
         $traslado->load(
@@ -181,12 +188,14 @@ class BodegaController extends Controller
         return view('frontend.admin.especies.bodega.traslados.show', compact('traslado'));
     }
 
+    //formulario para agregar un detalle (lote y rango) al traslado
     public function trasladoDetalleCrear(Traslado $traslado)
     {
         $tipos = TipoEspecie::where('activo', true)->orderBy('nombre')->get();
         return view('frontend.admin.especies.bodega.traslados.detalles.crear', compact('traslado', 'tipos'));
     }
 
+    //valida que el origen tenga todo el rango disponible a esa fecha y guarda el detalle
     public function trasladoDetalleStore(Request $request, Traslado $traslado)
     {
         $request->validate([
@@ -222,7 +231,7 @@ class BodegaController extends Controller
                 'cantidad'      => $fin - $inicio + 1,
             ]);
 
-            // El origen debia tener esos documentos a la fecha del traslado y el destino no tenerlos ya
+            //el origen debia tener esos documentos a la fecha del traslado y el destino no tenerlos ya
             Inventario::asegurar([[$traslado->origen_distrito_id, $lote->id], [$traslado->distrito_id, $lote->id]]);
         });
 
@@ -230,6 +239,7 @@ class BodegaController extends Controller
             ->with('success_detalle', 'Detalle agregado correctamente.');
     }
 
+    //quita un detalle del traslado si no tiene anulaciones ni movimientos posteriores
     public function trasladoDetalleDestroy(Traslado $traslado, TrasladoDetalle $detalle)
     {
         abort_if($detalle->traslado_id != $traslado->id, 404);
@@ -252,7 +262,7 @@ class BodegaController extends Controller
             ->with('success_detalle', 'Detalle eliminado correctamente.');
     }
 
-    // ── AJAX: stock en bodega ─────────────────────────────────────────────────
+    //AJAX: stock en bodega
 
     public function ajaxLotesStock(Request $request)
     {
@@ -260,7 +270,7 @@ class BodegaController extends Controller
             Inventario::bodega((int) $request->tipo_especie_id), 'Stock'));
     }
 
-    // ── AJAX: stock en un distrito ────────────────────────────────────────────
+    //AJAX: stock en un distrito
 
     public function ajaxLotesDistritoStock(Request $request)
     {
@@ -268,7 +278,7 @@ class BodegaController extends Controller
             Inventario::distrito((int) $request->distrito_id, (int) $request->tipo_especie_id), 'Disponible'));
     }
 
-    // Lotes con existencia para el selector del detalle, con los rangos que realmente quedan
+    //lotes con existencia para el selector del detalle, con los rangos que realmente quedan
     private function opcionesLotes($existencias, string $rotulo)
     {
         return $existencias->filter(fn($r) => $r['cantidad'] > 0)
@@ -284,7 +294,7 @@ class BodegaController extends Controller
             ->values();
     }
 
-    // ── Stock disponible en bodega ────────────────────────────────────────────
+    //stock disponible en bodega
 
     public function stock(Request $request)
     {

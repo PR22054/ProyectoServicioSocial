@@ -3,7 +3,7 @@
 
 @section('page_content')
 
-{{-- FILTROS PARA GENERAR EL REPORTE: CONTROL DE SALDOS POR DISTRITO Y RANGO DE FECHAS --}}
+{{--FILTROS PARA GENERAR EL REPORTE: CONTROL DE SALDOS POR DISTRITO Y RANGO DE FECHAS--}}
 @if($errors->any())
 <div class="alert alert-danger py-2">
     @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
@@ -13,6 +13,7 @@
 <div class="card">
     <div class="card-header"><h3 class="card-title">Filtros — Control de Saldos</h3></div>
     <div class="card-body">
+        {{--filtros del control de saldos: distrito, mes y ano--}}
         <form method="GET" action="{{ route('admin.especies.reportes.saldos') }}" target="_blank">
             <input type="hidden" name="generar" value="1">
             <div class="row">

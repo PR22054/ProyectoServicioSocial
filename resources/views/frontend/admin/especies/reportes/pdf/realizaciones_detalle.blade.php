@@ -1,12 +1,12 @@
-{{-- PDF: ESPECIES REALIZADAS DETALLADO - cada realizacion y cada nula del mes (denominacion, serie y rango), agrupadas por tipo, sin encabezado
-     de formulario ni firma. Las nulas no cobran; DESCARGO = cantidad x costo de la tarifa del distrito --}}
+{{--PDF: ESPECIES REALIZADAS DETALLADO - cada realizacion y cada nula del mes (denominacion, serie y rango), agrupadas por tipo, sin encabezado
+     de formulario ni firma. las nulas no cobran; DESCARGO = cantidad x costo de la tarifa del distrito--}}
 @php
   $tituloReporte = 'Especies Realizadas';
   $sinRecuadro   = true;
   $lineasTitulo  = ['ALCALDIA MUNICIPAL DE SANTA ANA NORTE', $distrito->nombre_reporte, 'ESPECIES MUNICIPALES REALIZADAS',
                     mb_strtoupper("$nombreMes $anio")];
 
-  // montos a 2 decimales (los descargos ya vienen truncados al centavo); el cero se muestra "$ -"
+  //montos a 2 decimales (los descargos ya vienen truncados al centavo); el cero se muestra "$ -"
   $dinero = fn($v) => abs($v) < 0.000001 ? '$ -' : '$' . number_format($v, 2);
 @endphp
 @include('frontend.admin.especies.reportes.pdf.header')

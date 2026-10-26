@@ -80,10 +80,6 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
         Route::delete('configuracion/distritos/tipos/{config}',          [DistritoConfigController::class, 'quitarTipo'])->name('configuracion.distritos.tipos.destroy');
         Route::post('configuracion/distritos/{distrito}/tarifas',        [DistritoConfigController::class, 'guardarTarifa'])->name('configuracion.distritos.tarifas');
         Route::delete('configuracion/distritos/tarifas/{tarifa}',        [DistritoConfigController::class, 'quitarTarifa'])->name('configuracion.distritos.tarifas.destroy');
-        Route::post('configuracion/distritos/{distrito}/cajas',          [DistritoConfigController::class, 'guardarCaja'])->name('configuracion.distritos.cajas');
-        Route::delete('configuracion/distritos/cajas/{ubicacion}',       [DistritoConfigController::class, 'quitarCaja'])->name('configuracion.distritos.cajas.destroy');
-        Route::post('configuracion/distritos/{distrito}/asignaciones',   [DistritoConfigController::class, 'asignar'])->name('configuracion.distritos.asignaciones');
-        Route::delete('configuracion/distritos/asignaciones/{rango}',    [DistritoConfigController::class, 'quitarAsignacion'])->name('configuracion.distritos.asignaciones.destroy');
 
         Route::get('ajax/denominaciones',              [ConfiguracionController::class,      'ajaxDenominaciones'])->name('ajax.denominaciones');
 
@@ -114,6 +110,8 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
         Route::get('distritos/anulaciones',                                [EspecieDistritoController::class, 'anulacionHistorial'])->name('distritos.anulaciones.historial');
         Route::get('distritos/anulaciones/crear',                          [EspecieDistritoController::class, 'anulacionCrear'])->name('distritos.anulaciones.crear');
         Route::post('distritos/anulaciones',                               [EspecieDistritoController::class, 'anulacionStore'])->name('distritos.anulaciones.store');
+        Route::get('distritos/anulaciones/{nula}/editar',                  [EspecieDistritoController::class, 'anulacionEditar'])->name('distritos.anulaciones.editar');
+        Route::patch('distritos/anulaciones/{nula}',                       [EspecieDistritoController::class, 'anulacionUpdate'])->name('distritos.anulaciones.update');
         Route::delete('distritos/anulaciones/{nula}',                      [EspecieDistritoController::class, 'anulacionDestroy'])->name('distritos.anulaciones.destroy');
         Route::get('distritos/stock',                                      [EspecieDistritoController::class, 'stock'])->name('distritos.stock');
 

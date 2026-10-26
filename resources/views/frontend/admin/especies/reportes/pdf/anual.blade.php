@@ -1,4 +1,4 @@
-{{-- PDF: CONSOLIDADO ANUAL - matriz meses x denominaciones, realizado y nulas --}}
+{{--PDF: CONSOLIDADO ANUAL - matriz meses x denominaciones, realizado y nulas--}}
 @php $tituloReporte = 'Consolidado Anual por Distrito'; @endphp
 @include('frontend.admin.especies.reportes.pdf.header')
 
@@ -14,6 +14,7 @@
 @else
 
 <p class="seccion">REALIZADO</p>
+{{--tabla de entradas y salidas por mes--}}
 <table class="datos">
   <thead>
     <tr>
@@ -51,6 +52,7 @@
 
 <br>
 <p class="seccion">NULAS</p>
+{{--tabla de totales por denominacion--}}
 <table class="datos">
   <thead>
     <tr>

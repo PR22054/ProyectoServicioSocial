@@ -7,18 +7,15 @@ use App\Models\Distrito;
 use App\Models\DistritoDenominacion;
 use App\Models\DistritoTipoEspecie;
 use App\Models\TipoEspecie;
-use App\Models\Ubicacion;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Configuracion de libros y reportes tomada de los libros y reportes mensuales de Tesoreria (nov-2025 a mar-2026):
- * como se lleva cada tipo y, por distrito, sus rotulos, orden, costos, precios de venta y cajas.
- * Se puede correr varias veces: actualiza lo que ya existe.
- */
+//configuracion de libros y reportes tomada de los libros y reportes mensuales de tesoreria (nov-2025 a jun-2026):
+//como se lleva cada tipo y, por distrito, sus rotulos, orden, costos y precios de venta.
+//se puede correr varias veces: actualiza lo que ya existe.
 class CatalogoEspeciesSeeder extends Seeder
 {
-    // tipo => [se lleva en unidades, orden]
+    //tipo => [se lleva en unidades, orden]
     private const TIPOS = [
         'Fondo Vialidad'                         => [false, 1],
         'Tiquetes de Mercado'                    => [false, 2],
@@ -39,7 +36,7 @@ class CatalogoEspeciesSeeder extends Seeder
         'Caja Auxiliar'                          => [false, 17],
     ];
 
-    // Costo general de cada denominacion (tipo => [[valor, costo]]); los distritos pueden tener el suyo
+    //costo general de cada denominacion (tipo => [[valor, costo]]); los distritos pueden tener el suyo
     private const COSTOS = [
         'Fondo Vialidad'                         => [[0.57, 0.10], [1.14, 0.15], [3.43, 0.10]],
         'Tiquetes de Mercado'                    => [[0.12, 0.0105], [0.15, 0.015], [0.25, 0.015], [0.50, 0.015], [1.00, 0.015]],
@@ -59,9 +56,10 @@ class CatalogoEspeciesSeeder extends Seeder
         'Tarjetas de Control de Mercado'         => [[0.30, 0.30]],
     ];
 
-    // Se venden a su valor facial: vialidad, tiquetes y bascula
+    //se venden a su valor facial: vialidad, tiquetes y bascula
     private const VENTA_AL_VALOR = ['Fondo Vialidad', 'Tiquetes de Mercado', 'Tiquetes Servicio de Báscula'];
 
+    //crea o actualiza tipos, denominaciones, costos y la plantilla de cada distrito
     public function run(): void
     {
         foreach (self::TIPOS as $nombre => [$unidades, $orden]) {
@@ -69,10 +67,10 @@ class CatalogoEspeciesSeeder extends Seeder
             $tipo->update(['unidades' => $unidades, 'orden' => $orden]);
         }
 
-        // Cartas manuales: Masahuat las realizo hasta nov-2025
+        //cartas manuales: masahuat las realizo hasta nov-2025
         TipoEspecie::where('nombre', 'Cartas de Venta')->whereNull('descripcion')
             ->update(['descripcion' => 'Cartas de venta manuales, ya no se realizan']);
-        // Texistepeque sigue realizando carnet de menores
+        //texistepeque sigue realizando carnet de menores
         $carnet = TipoEspecie::where('nombre', 'Carnet de Menores')->first();
         $carnet?->update(['activo' => true, 'descripcion' => 'Ya no se realizan en Metapán']);
         Denominacion::where('tipo_especie_id', $carnet?->id)->update(['activo' => true]);
@@ -88,7 +86,7 @@ class CatalogoEspeciesSeeder extends Seeder
             ->whereNull('precio_venta')->update(['precio_venta' => DB::raw('valor')]);
 
         foreach ($this->plantillas() as $codigo => $p) {
-            // los distritos nuevos se crean aqui; los cuatro originales vienen de EspeciesMunicipalesSeeder
+            //los distritos nuevos se crean aqui; los cuatro originales vienen de EspeciesMunicipalesSeeder
             $distrito = Distrito::firstOrCreate(['codigo' => $codigo], ['nombre' => $p['nombre'] ?? $codigo, 'activo' => true]);
             $distrito->update(['nombre_oficial' => $p['nombre_oficial'], 'lugar_firma' => $p['lugar_firma'] ?? null,
                                'saldo_por_valor' => $p['saldo_por_valor'] ?? true]);
@@ -96,7 +94,7 @@ class CatalogoEspeciesSeeder extends Seeder
             $ordenTipo = 0;
             foreach ($p['tipos'] as $tipo => $plantilla) {
                 [$tituloLibro, $tituloReporte, $filas] = $plantilla;
-                // el reporte de realizaciones usa los rotulos del control de saldos si no trae los suyos
+                //el reporte de realizaciones usa los rotulos del control de saldos si no trae los suyos
                 $tituloReal = $plantilla[3] ?? $tituloReporte;
                 $filasReal  = $plantilla[4] ?? array_values(array_filter($filas, fn($f) => !$f['nulas']));
 
@@ -105,7 +103,7 @@ class CatalogoEspeciesSeeder extends Seeder
                     ['titulo_libro' => $tituloLibro, 'titulo_reporte' => $tituloReporte, 'titulo_realizaciones' => $tituloReal,
                      'orden' => ++$ordenTipo, 'nulas_en_realizaciones' => in_array($tipo, $p['nulas_en_realizaciones'] ?? [])]);
 
-                // Las filas van en el orden del reporte; la de nulas se guarda en la tarifa de su denominacion
+                //las filas van en el orden del reporte; la de nulas se guarda en la tarifa de su denominacion
                 $tarifas = [];
                 $tarifa  = function (float $valor) use (&$tarifas, $tipos, $tipo, $distrito) {
                     $den = Denominacion::where('tipo_especie_id', $tipos[$tipo])->where('valor', $valor)->firstOrFail();
@@ -138,23 +136,20 @@ class CatalogoEspeciesSeeder extends Seeder
                 }
             }
 
-            foreach ($p['cajas'] ?? [] as $orden => $caja) {
-                Ubicacion::updateOrCreate(['distrito_id' => $distrito->id, 'nombre' => $caja], ['orden' => $orden + 1]);
-            }
         }
     }
 
-    /** Plantilla de cada distrito, igual a sus libros, a su "Control de Saldos" (hojas SALDOS) y a sus hojas REALIZADAS. */
+    //plantilla de cada distrito, igual a sus libros, a su "Control de Saldos" (hojas SALDOS) y a sus hojas REALIZADAS.
     private function plantillas(): array
     {
-        // fila del reporte: descripcion, valor de la denominacion, costo y precio de venta (null: no se vende)
+        //fila del reporte: descripcion, valor de la denominacion, costo y precio de venta (null: no se vende)
         $fila  = fn(float $valor, string $descripcion, float $costo, ?float $venta = null) =>
             ['nulas' => false, 'valor' => $valor, 'descripcion' => $descripcion, 'costo' => $costo, 'venta' => $venta];
-        // fila de nulas de esa denominacion (en las hojas de saldos siempre va en cero); con venta muestra 0.00
+        //fila de nulas de esa denominacion (en las hojas de saldos siempre va en cero); con venta muestra 0.00
         $nulas = fn(float $valor, string $descripcion = 'NULAS', bool $conVenta = false) =>
             ['nulas' => true, 'valor' => $valor, 'descripcion' => $descripcion, 'con_venta' => $conVenta];
-        // reporte de realizaciones (hojas REALIZADAS): titulo y filas cuando no son los del control de saldos;
-        // la fila de nulas cuenta las anuladas de su denominacion, sin ella se suman a la fila de la denominacion
+        //reporte de realizaciones (hojas REALIZADAS): titulo y filas cuando no son los del control de saldos;
+        //la fila de nulas cuenta las anuladas de su denominacion, sin ella se suman a la fila de la denominacion
         $real      = fn(float $valor, string $descripcion) => ['nulas' => false, 'valor' => $valor, 'descripcion' => $descripcion];
         $nulasReal = fn(float $valor, string $descripcion = 'NULAS') => ['nulas' => true, 'valor' => $valor, 'descripcion' => $descripcion];
         $conNulas  = fn(float $valor, string $descripcion) => [$real($valor, $descripcion), $nulasReal($valor)];
@@ -171,8 +166,7 @@ class CatalogoEspeciesSeeder extends Seeder
             'D01' => [
                 'nombre_oficial' => 'DISTRITO DE METAPÁN',
                 'lugar_firma'    => 'UNIDAD DE TESORERIA DISTRITO DE METAPAN',
-                'cajas'          => ['CAJA 1', 'CAJA 2', 'RASTRO', 'AUXILIAR', 'C. DOMICILIO'],
-                // libros que suman las nulas al total de realizaciones
+                //libros que suman las nulas al total de realizaciones
                 'nulas_en_realizaciones' => ['Cartas de Venta Continua', 'Tarjetas para Carnet de Identificación'],
                 'tipos'          => [
                     'Fondo Vialidad' => ['FONDO DE VIALIDAD', 'FONDO DE VIALIDAD', [
@@ -259,7 +253,7 @@ class CatalogoEspeciesSeeder extends Seeder
             ],
             'D04' => [
                 'nombre_oficial'  => 'DISTRITO DE TEXISTEPEQUE',
-                'saldo_por_valor' => false,   // su libro agrega lo que entra al final del saldo
+                'saldo_por_valor' => false,   //su libro agrega lo que entra al final del saldo
                 'nulas_en_realizaciones' => ['Cartas de Venta Continua', 'Tarjetas para Carnet de Identificación', 'Guías de Conducción de Ganado'],
                 'tipos'           => [
                     'Fondo Vialidad' => ['FONDO DE VIALIDAD', 'FONDO DE VIALIDAD', $vialidad343, ...$vialidad343Real],

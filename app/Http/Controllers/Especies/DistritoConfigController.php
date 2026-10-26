@@ -7,16 +7,16 @@ use App\Models\Denominacion;
 use App\Models\Distrito;
 use App\Models\DistritoDenominacion;
 use App\Models\DistritoTipoEspecie;
+use App\Models\Realizacion;
 use App\Models\TipoEspecie;
-use App\Models\Ubicacion;
-use App\Models\UbicacionRango;
-use App\Services\Inventario;
+use App\Services\Tarifas;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
-// Como lleva cada distrito su libro de especies y su reporte mensual: rotulos, tarifas y cajas
+//como lleva cada distrito su libro de especies y sus reportes: rotulos y tarifas
 class DistritoConfigController extends Controller
 {
+    //pantalla de configuracion del distrito elegido: datos, tipos y tarifas
     public function index(Request $request)
     {
         $distritos = Distrito::orderBy('codigo')->get();
@@ -30,14 +30,12 @@ class DistritoConfigController extends Controller
             ->sortBy(fn($t) => [$config->firstWhere('tipo_especie_id', $t->denominacion->tipo_especie_id)->orden ?? 999,
                                 $t->denominacion->tipo_especie_id, $t->orden])
             ->values();
-        $cajas          = Ubicacion::withCount('rangos')->where('distrito_id', $distrito->id)->orderBy('orden')->get();
-        $asignaciones   = UbicacionRango::with('ubicacion', 'tipoEspecie', 'usuario')->whereIn('ubicacion_id', $cajas->pluck('id'))
-            ->orderByDesc('fecha')->orderByDesc('id')->paginate(20)->withQueryString();
 
         return view('frontend.admin.especies.configuracion.distritos', compact(
-            'distritos', 'distrito', 'tipos', 'denominaciones', 'config', 'tarifas', 'cajas', 'asignaciones'));
+            'distritos', 'distrito', 'tipos', 'denominaciones', 'config', 'tarifas'));
     }
 
+    //guarda el nombre oficial, el lugar de la firma y si el saldo del libro se ordena por valor
     public function update(Request $request, Distrito $distrito)
     {
         $datos = $request->validate([
@@ -49,6 +47,7 @@ class DistritoConfigController extends Controller
         return back()->with('success', 'Datos del distrito guardados.');
     }
 
+    //agrega o actualiza los titulos, el orden y la regla de nulas de un tipo en el distrito
     public function guardarTipo(Request $request, Distrito $distrito)
     {
         $datos = $request->validate([
@@ -67,12 +66,14 @@ class DistritoConfigController extends Controller
         return back()->with('success', 'Tipo guardado.');
     }
 
+    //quita la configuracion de un tipo en el distrito
     public function quitarTipo(DistritoTipoEspecie $config)
     {
         $config->delete();
         return back()->with('success', 'El tipo ya no tiene rótulos propios en este distrito.');
     }
 
+    //agrega o actualiza la tarifa de una denominacion en el distrito; si cambia el precio de venta puede recalcular el monto cobrado
     public function guardarTarifa(Request $request, Distrito $distrito)
     {
         $datos = $request->validate([
@@ -87,7 +88,8 @@ class DistritoConfigController extends Controller
             'orden_realizaciones'       => 'nullable|integer|min:0|max:999',
             'nulas_realizaciones'       => 'nullable|string|max:150',
             'orden_nulas_realizaciones' => 'nullable|integer|min:0|max:999',
-        ], ['denominacion_id.required' => 'Seleccione una denominación.']);
+            'aplicar_desde'             => 'nullable|date',
+        ], ['denominacion_id.required' => 'Seleccione una denominación.', 'aplicar_desde.date' => 'La fecha para recalcular no es válida.']);
 
         DistritoDenominacion::updateOrCreate(
             ['distrito_id' => $distrito->id, 'denominacion_id' => $datos['denominacion_id']],
@@ -103,62 +105,27 @@ class DistritoConfigController extends Controller
              'nulas_realizaciones'       => $datos['nulas_realizaciones'] ?? null,
              'orden_nulas_realizaciones' => $datos['orden_nulas_realizaciones'] ?? null]);
 
-        return back()->with('success', 'Tarifa guardada. Las realizaciones nuevas se cobran con el precio de venta de la tarifa.');
+        if (empty($datos['aplicar_desde'])) {
+            return back()->with('success', 'Tarifa guardada. Las realizaciones nuevas se cobran con el precio de venta de la tarifa.');
+        }
+
+        //cambio de precio de venta: el monto cobrado de las realizaciones desde esa fecha se recalcula con el precio nuevo
+        $desde  = Carbon::parse($datos['aplicar_desde'])->startOfDay();
+        $precio = Tarifas::precioVenta($distrito->id, Denominacion::findOrFail($datos['denominacion_id'])) ?? 0;
+        $realizaciones = Realizacion::where('distrito_id', $distrito->id)->where('denominacion_id', $datos['denominacion_id'])
+            ->where('fecha', '>=', $desde)->get();
+        foreach ($realizaciones as $r) {
+            $r->update(['monto_cobrado' => round($r->cantidad * $precio, 2)]);
+        }
+
+        return back()->with('success', "Tarifa guardada. Se recalculó el monto cobrado de {$realizaciones->count()} realización(es) "
+            . "desde el {$desde->format('d/m/Y')} con el precio de venta $" . number_format($precio, 2) . '.');
     }
 
+    //quita la tarifa del distrito; se vuelven a usar los valores generales de la denominacion
     public function quitarTarifa(DistritoDenominacion $tarifa)
     {
         $tarifa->delete();
         return back()->with('success', 'Tarifa quitada: se usarán los valores generales de la denominación.');
-    }
-
-    public function guardarCaja(Request $request, Distrito $distrito)
-    {
-        $request->merge(['nombre' => mb_strtoupper(trim((string) $request->nombre))]);
-        $datos = $request->validate([
-            'nombre' => ['required', 'string', 'max:60', Rule::unique('ubicaciones')->where('distrito_id', $distrito->id)],
-            'orden'  => 'nullable|integer|min:0|max:999',
-        ], ['nombre.required' => 'El nombre de la caja es obligatorio.', 'nombre.unique' => 'El distrito ya tiene una caja con ese nombre.']);
-
-        Ubicacion::create(['distrito_id' => $distrito->id, 'nombre' => $datos['nombre'], 'orden' => (int) ($datos['orden'] ?? 0)]);
-
-        return back()->with('success', 'Caja agregada.');
-    }
-
-    public function quitarCaja(Ubicacion $ubicacion)
-    {
-        if ($ubicacion->rangos()->exists()) {
-            return back()->with('error', 'La caja tiene rangos asignados; quite primero sus asignaciones.');
-        }
-        $ubicacion->delete();
-        return back()->with('success', 'Caja eliminada.');
-    }
-
-    // Desde la fecha, el rango se rotula con esa caja en el libro; no mueve existencias
-    public function asignar(Request $request, Distrito $distrito)
-    {
-        $datos = $request->validate([
-            'ubicacion_id'    => ['required', Rule::exists('ubicaciones', 'id')->where('distrito_id', $distrito->id)],
-            'tipo_especie_id' => 'required|exists:tipo_especies,id',
-            'serie'           => 'nullable|string|max:10',
-            'numero_inicio'   => 'required|integer|min:1',
-            'numero_fin'      => 'required|integer|gte:numero_inicio',
-            'fecha'           => 'required|date|before_or_equal:today',
-        ], [
-            'ubicacion_id.required' => 'Seleccione la caja.',
-            'ubicacion_id.exists'   => 'La caja no pertenece a este distrito.',
-            'numero_fin.gte'        => 'El número final no puede ser menor que el inicial.',
-            'fecha.before_or_equal' => 'La fecha no puede ser futura.',
-        ]);
-
-        UbicacionRango::create(array_merge($datos, ['serie' => Inventario::serie($datos['serie'] ?? null), 'usuario_id' => auth()->id()]));
-
-        return back()->with('success', 'Rango asignado a la caja.');
-    }
-
-    public function quitarAsignacion(UbicacionRango $rango)
-    {
-        $rango->delete();
-        return back()->with('success', 'Asignación eliminada.');
     }
 }

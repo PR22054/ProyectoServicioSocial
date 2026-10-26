@@ -1,3 +1,4 @@
+{{--PDF: reporte mensual por distrito con lo recibido, realizado, anulado y el saldo--}}
 @php
   $tituloReporte  = 'Reporte Mensual por Distrito';
   $encabezadoCaja = 'REPORTE MENSUAL POR DISTRITO';

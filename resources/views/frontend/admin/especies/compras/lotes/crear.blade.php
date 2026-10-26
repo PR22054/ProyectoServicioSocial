@@ -1,3 +1,4 @@
+{{--formulario para agregar un lote a una compra: tipo, denominacion, serie y rangos--}}
 @extends('frontend.layouts.admin')
 @section('page_title', 'Agregar Lote — Factura N° ' . $compra->numero_factura)
 
@@ -22,6 +23,7 @@
                 </div>
             @endif
 
+            {{--datos del lote--}}
             <form method="POST" action="{{ route('admin.especies.compras.lotes.store', $compra) }}" id="form-lote">
                 @csrf
 
@@ -63,7 +65,7 @@
                     </div>
                 </div>
 
-                {{-- Rangos dinámicos --}}
+                {{--rangos dinamicos--}}
                 <div class="card card-secondary card-outline mt-2">
                     <div class="card-header py-2">
                         <h5 class="card-title mb-0">Rangos de numeración</h5>
@@ -74,6 +76,8 @@
                         </div>
                     </div>
                     <div class="card-body p-0">
+                        <div class="table-responsive">
+                        {{--rangos del lote; se pueden agregar varios--}}
                         <table class="table table-sm mb-0" id="tabla-rangos">
                             <thead>
                                 <tr>
@@ -85,7 +89,7 @@
                                 </tr>
                             </thead>
                             <tbody id="rangos-body">
-                                {{-- fila inicial --}}
+                                {{--fila inicial--}}
                                 <tr class="rango-row" data-index="0">
                                     <td class="text-center rango-num">1</td>
                                     <td>
@@ -106,7 +110,7 @@
                                         <span class="rango-cantidad text-muted">—</span>
                                     </td>
                                     <td class="text-center">
-                                        {{-- primera fila no se puede eliminar --}}
+                                        {{--primera fila no se puede eliminar--}}
                                     </td>
                                 </tr>
                             </tbody>
@@ -118,6 +122,7 @@
                                 </tr>
                             </tfoot>
                         </table>
+                        </div>
                     </div>
                 </div>
 
@@ -137,12 +142,13 @@
 @stop
 
 @push('js')
+{{--denominaciones por tipo, filas de rangos y totales--}}
 <script>
 const AJAX_URL = '{{ route('admin.especies.ajax.denominaciones') }}';
 const oldTipoId = '{{ old('tipo_especie_id') }}';
 const oldDenId  = '{{ old('denominacion_id') }}';
 
-// ── Denominaciones AJAX ──────────────────────────────────────────────────────
+//denominaciones AJAX
 $('#tipo_especie_id').on('change', function () {
     var tipoId = $(this).val();
     var $den   = $('#denominacion_id');
@@ -168,14 +174,15 @@ $('#tipo_especie_id').on('change', function () {
     });
 });
 
-// Disparar si hay old() value al cargar la página
+//disparar si hay old() value al cargar la pagina
 if (oldTipoId) {
     $('#tipo_especie_id').val(oldTipoId).trigger('change');
 }
 
-// ── Rangos dinámicos ─────────────────────────────────────────────────────────
+//rangos dinamicos
 var rangoIndex = 1;
 
+//calcula la cantidad de una fila de rango
 function calcularCantidad($row) {
     var inicio = parseInt($row.find('.rango-inicio').val()) || 0;
     var fin    = parseInt($row.find('.rango-fin').val())    || 0;
@@ -184,6 +191,7 @@ function calcularCantidad($row) {
     recalcularTotal();
 }
 
+//suma la cantidad de todos los rangos
 function recalcularTotal() {
     var total = 0;
     $('#rangos-body .rango-row').each(function () {
@@ -205,7 +213,7 @@ $('#btn-add-rango').on('click', function () {
         '<td><input type="number" name="rangos[' + i + '][numero_inicio]" class="form-control form-control-sm rango-inicio" min="1" placeholder="Ej. 260801"></td>' +
         '<td><input type="number" name="rangos[' + i + '][numero_fin]"    class="form-control form-control-sm rango-fin"    min="1" placeholder="Ej. 261000"></td>' +
         '<td class="text-right"><span class="rango-cantidad text-muted">—</span></td>' +
-        '<td class="text-center"><button type="button" class="btn btn-xs btn-danger btn-eliminar-rango"><i class="fas fa-times"></i></button></td>' +
+        '<td class="text-center"><button type="button" class="btn btn-xs btn-danger btn-eliminar-rango" title="Quitar este rango"><i class="fas fa-times"></i></button></td>' +
     '</tr>');
     $('#rangos-body').append($row);
     actualizarNumeros();
@@ -217,6 +225,7 @@ $(document).on('click', '.btn-eliminar-rango', function () {
     recalcularTotal();
 });
 
+//renumera las filas al quitar un rango
 function actualizarNumeros() {
     $('#rangos-body .rango-row').each(function (i) {
         $(this).find('.rango-num').text(i + 1);

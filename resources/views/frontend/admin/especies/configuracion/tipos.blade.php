@@ -3,7 +3,7 @@
 
 @section('page_content')
 
-    {{-- alertas --}}
+    {{--alertas--}}
     @if(session('success_tipo'))
         <div class="alert alert-success alert-dismissible fade show">
             {{ session('success_tipo') }}
@@ -17,13 +17,14 @@
         </div>
     @endif
 
-    {{-- formulario de creacion --}}
+    {{--formulario de creacion--}}
     <div class="card">
         <div class="card-header"><h3 class="card-title">Nuevo tipo de especie</h3></div>
         <div class="card-body">
             @if($errors->has('nombre'))
                 <div class="alert alert-danger py-2">{{ $errors->first('nombre') }}</div>
             @endif
+            {{--formulario para agregar un tipo de especie--}}
             <form method="POST" action="{{ route('admin.especies.configuracion.tipos.store') }}">
                 @csrf
                 <div class="row align-items-end">
@@ -34,17 +35,11 @@
                                    value="{{ old('nombre') }}" placeholder="Ej. Fondo Vialidad" maxlength="100">
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <div class="form-group mb-0">
                             <label>Descripción <small class="text-muted">(opcional)</small></label>
                             <input type="text" name="descripcion" class="form-control"
                                    value="{{ old('descripcion') }}" placeholder="Descripción breve" maxlength="255">
-                        </div>
-                    </div>
-                    <div class="col-md-1">
-                        <div class="form-group mb-0">
-                            <label>Orden</label>
-                            <input type="number" name="orden" class="form-control" value="{{ old('orden', 0) }}" min="0" max="999">
                         </div>
                     </div>
                     <div class="col-md-2">
@@ -69,17 +64,18 @@
         </div>
     </div>
 
-    {{-- tabla de tipos --}}
+    {{--tabla de tipos--}}
     <div class="card">
         <div class="card-header"><h3 class="card-title">Tipos registrados ({{ $tipos->count() }})</h3></div>
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--tabla de tipos con sus acciones--}}
             <table class="table table-striped table-sm mb-0">
                 <thead>
                     <tr>
                         <th style="width:5%">#</th>
                         <th>Nombre</th>
                         <th>Descripción</th>
-                        <th class="text-center" style="width:7%">Orden</th>
                         <th class="text-center" style="width:12%">Libro</th>
                         <th class="text-center" style="width:10%">Estado</th>
                         <th class="text-center" style="width:12%">Acciones</th>
@@ -91,7 +87,6 @@
                         <td>{{ $loop->iteration }}</td>
                         <td>{{ $tipo->nombre }}</td>
                         <td class="text-muted">{{ $tipo->descripcion ?? '—' }}</td>
-                        <td class="text-center">{{ $tipo->orden }}</td>
                         <td class="text-center">{{ $tipo->unidades ? 'En unidades' : 'Con valor' }}</td>
                         <td class="text-center">
                             @if($tipo->activo)
@@ -101,8 +96,8 @@
                             @endif
                         </td>
                         <td class="text-center">
-                            <button class="btn btn-xs btn-warning"
-                                    onclick="abrirEditTipo({{ $tipo->id }}, {{ Js::from($tipo->nombre) }}, {{ Js::from($tipo->descripcion ?? '') }}, {{ (int) $tipo->activo }}, {{ (int) $tipo->unidades }}, {{ $tipo->orden }})">
+                            <button class="btn btn-xs btn-warning" data-toggle="tooltip" title="Editar tipo de especie"
+                                    onclick="abrirEditTipo({{ $tipo->id }}, {{ Js::from($tipo->nombre) }}, {{ Js::from($tipo->descripcion ?? '') }}, {{ (int) $tipo->activo }}, {{ (int) $tipo->unidades }})">
                                 <i class="fas fa-edit"></i>
                             </button>
                             <form method="POST" action="{{ route('admin.especies.configuracion.tipos.destroy', $tipo) }}"
@@ -110,24 +105,26 @@
                                 @csrf @method('DELETE')
                             </form>
                             <button type="button" class="btn btn-xs btn-danger"
-                                    data-swal-delete data-form="del-tipo-{{ $tipo->id }}"
+                                    data-swal-delete data-toggle="tooltip" title="Eliminar tipo de especie" data-form="del-tipo-{{ $tipo->id }}"
                                     data-msg="¿Eliminar el tipo «{{ $tipo->nombre }}»?">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="7" class="text-center text-muted py-3">Sin tipos registrados</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-3">Sin tipos registrados</td></tr>
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 
-    {{-- modal de edicion --}}
+    {{--modal de edicion--}}
     <div class="modal fade" id="modalEditTipo" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
+                {{--ventana para editar un tipo de especie--}}
                 <form method="POST" id="formEditTipo">
                     @csrf @method('PATCH')
                     <div class="modal-header">
@@ -142,10 +139,6 @@
                         <div class="form-group">
                             <label>Descripción <small class="text-muted">(opcional)</small></label>
                             <input type="text" name="descripcion" id="edit_descripcion" class="form-control" maxlength="255">
-                        </div>
-                        <div class="form-group">
-                            <label>Orden <small class="text-muted">(en listas y reportes)</small></label>
-                            <input type="number" name="orden" id="edit_orden" class="form-control" min="0" max="999">
                         </div>
                         <div class="custom-control custom-switch">
                             <input type="checkbox" class="custom-control-input" id="edit_activo" name="activo" value="1">
@@ -169,13 +162,14 @@
 @stop
 
 @push('js')
+{{--llena la ventana de edicion--}}
 <script>
-function abrirEditTipo(id, nombre, descripcion, activo, unidades, orden) {
+//abre la ventana de edicion con los datos del tipo elegido
+function abrirEditTipo(id, nombre, descripcion, activo, unidades) {
     document.getElementById('edit_nombre').value      = nombre;
     document.getElementById('edit_descripcion').value = descripcion;
     document.getElementById('edit_activo').checked    = activo == 1;
     document.getElementById('edit_unidades').checked  = unidades == 1;
-    document.getElementById('edit_orden').value       = orden;
     document.getElementById('formEditTipo').action    =
         '{{ url("admin/especies/configuracion/tipos") }}/' + id;
     $('#modalEditTipo').modal('show');

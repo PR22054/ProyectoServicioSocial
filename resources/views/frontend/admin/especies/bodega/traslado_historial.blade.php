@@ -1,3 +1,4 @@
+{{--vista anterior del historial de traslados (sin ruta que la use)--}}
 @extends('frontend.layouts.admin')
 @section('page_title', 'Historial de Traslados')
 @section('page_content')
@@ -42,6 +43,8 @@
     <div class="card">
         <div class="card-header"><h3 class="card-title">Resultados</h3></div>
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--tabla de traslados--}}
             <table class="table table-striped table-sm mb-0">
                 <thead>
                     <tr>
@@ -56,6 +59,7 @@
                     <tr><td colspan="5" class="text-center text-muted py-3">Sin datos aún</td></tr>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 

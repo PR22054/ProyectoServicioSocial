@@ -15,6 +15,8 @@
 
     <div class="card">
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--tabla de usuarios con su rol--}}
             <table class="table table-striped mb-0">
                 <thead class="thead-dark">
                     <tr>
@@ -49,12 +51,14 @@
                     @endforeach
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 
 @stop
 
 @push('js')
+{{--confirmacion antes de cambiar el propio rol--}}
 <script>
     //intercepta el submit del formulario de cambio de rol propio y pide confirmacion con SweetAlert
     document.addEventListener('DOMContentLoaded', function () {

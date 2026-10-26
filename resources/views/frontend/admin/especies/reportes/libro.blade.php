@@ -3,7 +3,7 @@
 
 @section('page_content')
 
-{{-- FILTROS PARA GENERAR EL REPORTE: LIBRO DE ESPECIES --}}
+{{--FILTROS PARA GENERAR EL REPORTE: LIBRO DE ESPECIES--}}
 @if($errors->any())
 <div class="alert alert-danger py-2">
     @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
@@ -13,6 +13,7 @@
 <div class="card">
     <div class="card-header"><h3 class="card-title">Filtros — Libro de Especies</h3></div>
     <div class="card-body">
+        {{--filtros del libro de especies--}}
         <form method="GET" action="{{ route('admin.especies.reportes.libro') }}" target="_blank">
             <input type="hidden" name="generar" value="1">
             <div class="row justify-content-center">
@@ -91,6 +92,7 @@
 @stop
 
 @push('js')
+{{--carga las denominaciones del tipo elegido--}}
 <script>
 const denomAjax = '{{ route("admin.especies.ajax.denominaciones") }}';
 //CARGA LAS DENOMINACIONES DEL TIPO SELECCIONADO VIA AJAX PARA EL FILTRO OPCIONAL

@@ -3,9 +3,10 @@
 
 @section('page_content')
 
-    {{-- filtro --}}
+    {{--filtro--}}
     <div class="card">
         <div class="card-body py-2">
+            {{--filtro por tipo de especie--}}
             <form method="GET" action="{{ route('admin.especies.bodega.stock') }}" class="form-inline">
                 <label class="mr-2">Filtrar por tipo:</label>
                 <select name="tipo_especie_id" class="form-control form-control-sm mr-2">
@@ -29,6 +30,8 @@
             <h3 class="card-title">Existencias en bodega ({{ $lotes->count() }} lotes)</h3>
         </div>
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--existencias de la bodega por lote--}}
             <table class="table table-striped table-sm mb-0">
                 <thead>
                     <tr>
@@ -79,6 +82,7 @@
                 </tfoot>
                 @endif
             </table>
+            </div>
         </div>
     </div>
 

@@ -1,3 +1,4 @@
+{{--historial de compras: lista, edicion en ventana y eliminacion--}}
 @extends('frontend.layouts.admin')
 @section('page_title', 'Historial de Compras')
 
@@ -16,7 +17,7 @@
         </div>
     @endif
 
-    {{-- LISTADO DE COMPRAS CON OPCIONES DE VER, EDITAR Y ELIMINAR --}}
+    {{--LISTADO DE COMPRAS CON OPCIONES DE VER, EDITAR Y ELIMINAR--}}
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Compras registradas ({{ $compras->total() }})</h3>
@@ -27,6 +28,8 @@
             </div>
         </div>
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--tabla de compras con sus acciones--}}
             <table class="table table-striped table-sm mb-0">
                 <thead>
                     <tr>
@@ -35,7 +38,7 @@
                         <th class="text-center" style="width:10%">Lotes</th>
                         <th class="text-right" style="width:15%">Monto total</th>
                         <th class="text-muted" style="width:25%">Observaciones</th>
-                        <th class="text-center" style="width:14%">Acciones</th>
+                        <th class="text-center" style="width:22%">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -50,13 +53,22 @@
                             ${{ number_format($compra->monto_total, 2) }}
                         </td>
                         <td class="text-muted small">{{ $compra->observaciones ?? '—' }}</td>
-                        <td class="text-center">
-                            <a href="{{ route('admin.especies.compras.show', $compra) }}"
-                               class="btn btn-xs btn-info">
-                                <i class="fas fa-eye"></i>
+                        <td class="text-center text-nowrap">
+                            {{--sin lotes la compra no ingresa especies: el boton invita a agregarlos--}}
+                            @if($compra->lotes_count)
+                            <a href="{{ route('admin.especies.compras.show', $compra) }}" class="btn btn-xs btn-info"
+                               data-toggle="tooltip" title="Ver los lotes de esta compra y agregar más">
+                                <i class="fas fa-eye mr-1"></i>Ver / agregar
                             </a>
-                            {{-- Js::from escapa saltos de linea y comillas; addslashes rompia el boton con observaciones de varias lineas --}}
+                            @else
+                            <a href="{{ route('admin.especies.compras.show', $compra) }}" class="btn btn-xs btn-success"
+                               data-toggle="tooltip" title="Esta compra todavía no tiene lotes: agregue las especies compradas">
+                                <i class="fas fa-plus mr-1"></i>Agregar lotes
+                            </a>
+                            @endif
+                            {{--Js::from escapa saltos de linea y comillas; addslashes rompia el boton con observaciones de varias lineas--}}
                             <button type="button" class="btn btn-xs btn-warning"
+                                    data-toggle="tooltip" title="Editar factura, fecha u observaciones de la compra"
                                     onclick="abrirEditCompra({{ $compra->id }}, {{ Js::from($compra->numero_factura) }},
                                         {{ Js::from($compra->fecha->format('Y-m-d')) }}, {{ Js::from($compra->observaciones ?? '') }})">
                                 <i class="fas fa-edit"></i>
@@ -67,6 +79,7 @@
                                 @csrf @method('DELETE')
                             </form>
                             <button type="button" class="btn btn-xs btn-danger"
+                                    data-toggle="tooltip" title="Eliminar la compra"
                                     data-swal-delete
                                     data-form="del-compra-{{ $compra->id }}"
                                     data-msg="¿Eliminar la compra «{{ $compra->numero_factura }}»? Se eliminarán sus lotes y rangos.">
@@ -84,19 +97,21 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
         @if($compras->hasPages())
             <div class="card-footer">{{ $compras->links() }}</div>
         @endif
     </div>
 
-    {{-- modal de edición --}}
+    {{--modal de edicion--}}
     <div class="modal fade" id="modalEditCompra" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
+                {{--ventana para editar los datos de la compra--}}
                 <form method="POST" id="formEditCompra">
                     @csrf @method('PATCH')
-                    {{-- permite reabrir el modal sobre la misma compra si la validacion falla --}}
+                    {{--permite reabrir el modal sobre la misma compra si la validacion falla--}}
                     <input type="hidden" name="_editar_id" id="edit_id">
                     <div class="modal-header">
                         <h5 class="modal-title">Editar compra</h5>
@@ -139,7 +154,9 @@
 @stop
 
 @push('js')
+{{--llena la ventana de edicion con los datos de la compra--}}
 <script>
+//abre la ventana de edicion con los datos de la compra elegida
 function abrirEditCompra(id, factura, fecha, observaciones) {
     document.getElementById('edit_id').value              = id;
     document.getElementById('edit_numero_factura').value  = factura;
@@ -151,7 +168,7 @@ function abrirEditCompra(id, factura, fecha, observaciones) {
 }
 
 @if($errors->any() && old('_editar_id'))
-// La edicion fallo: reabrir el modal con lo que se escribio para que se vea el error
+//la edicion fallo: reabrir el modal con lo que se escribio para que se vea el error
 document.addEventListener('DOMContentLoaded', () => abrirEditCompra(
     {{ Js::from(old('_editar_id')) }}, {{ Js::from(old('numero_factura')) }},
     {{ Js::from(old('fecha')) }}, {{ Js::from(old('observaciones') ?? '') }}));

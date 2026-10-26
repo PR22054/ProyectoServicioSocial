@@ -13,8 +13,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+//controlador de compras al M.H.: la factura, sus lotes y rangos; todo lo comprado entra a la bodega
 class CompraController extends Controller
 {
+    //lista las compras registradas
     public function historial()
     {
         $compras = Compra::withCount('lotes')
@@ -25,11 +27,13 @@ class CompraController extends Controller
         return view('frontend.admin.especies.compras.historial', compact('compras'));
     }
 
+    //muestra el formulario para registrar una compra nueva
     public function crear()
     {
         return view('frontend.admin.especies.compras.crear');
     }
 
+    //valida y guarda los datos de la factura; los lotes se agregan despues
     public function store(Request $request)
     {
         $request->validate([
@@ -55,18 +59,21 @@ class CompraController extends Controller
             ->with('success', 'Compra creada. Ahora agregue los lotes.');
     }
 
+    //muestra la compra con sus lotes y rangos
     public function show(Compra $compra)
     {
         $compra->load('lotes.tipoEspecie', 'lotes.denominacion', 'lotes.rangos', 'user');
         return view('frontend.admin.especies.compras.show', compact('compra'));
     }
 
+    //formulario para agregar un lote (tipo, denominacion, serie y rangos) a la compra
     public function crearLote(Compra $compra)
     {
         $tipos = TipoEspecie::where('activo', true)->orderBy('nombre')->get();
         return view('frontend.admin.especies.compras.lotes.crear', compact('compra', 'tipos'));
     }
 
+    //valida los rangos del lote (sin solaparse entre si ni con otros lotes del mismo tipo y serie) y lo guarda
     public function storeLote(Request $request, Compra $compra)
     {
         $request->validate([
@@ -84,16 +91,16 @@ class CompraController extends Controller
             'rangos.*.numero_fin.required'    => 'El número de fin es obligatorio.',
         ]);
 
-        // Denominacion pertenece al tipo
+        //la denominacion pertenece al tipo
         $denominacion = Denominacion::find($request->denominacion_id);
         if ($denominacion->tipo_especie_id != $request->tipo_especie_id) {
             return back()->withErrors(['denominacion_id' => 'La denominación no pertenece al tipo seleccionado.'])->withInput();
         }
 
-        // Reindexar: al quitar filas en el formulario los indices llegan con huecos (0, 2, 3...)
+        //reindexar: al quitar filas en el formulario los indices llegan con huecos (0, 2, 3...)
         $rangos = array_values($request->rangos);
 
-        // Inicio <= Fin en cada rango
+        //inicio <= fin en cada rango
         foreach ($rangos as $i => $rango) {
             if ((int) $rango['numero_inicio'] > (int) $rango['numero_fin']) {
                 return back()
@@ -102,7 +109,7 @@ class CompraController extends Controller
             }
         }
 
-        // Sin solapamiento entre rangos del mismo envío
+        //sin solapamiento entre rangos del mismo envio
         for ($i = 0; $i < count($rangos); $i++) {
             for ($j = $i + 1; $j < count($rangos); $j++) {
                 if ((int)$rangos[$i]['numero_inicio'] <= (int)$rangos[$j]['numero_fin'] &&
@@ -114,7 +121,7 @@ class CompraController extends Controller
             }
         }
 
-        // El correlativo es unico por tipo y serie: la misma numeracion se repite entre series distintas
+        //el correlativo es unico por tipo y serie: la misma numeracion se repite entre series distintas
         $tipoId = (int) $request->tipo_especie_id;
         $serie  = Inventario::serie($request->serie);
 
@@ -160,6 +167,7 @@ class CompraController extends Controller
             ->with('success_lote', 'Lote agregado correctamente.');
     }
 
+    //actualiza factura, fecha u observaciones si la nueva fecha sigue respaldando los traslados ya hechos
     public function update(Request $request, Compra $compra)
     {
         $request->validate([
@@ -173,7 +181,7 @@ class CompraController extends Controller
             'fecha.before_or_equal'   => 'La fecha no puede ser posterior a hoy.',
         ]);
 
-        // Mover la fecha de compra no puede dejar envios de bodega anteriores a la compra
+        //mover la fecha de compra no puede dejar envios de bodega anteriores a la compra
         try {
             DB::transaction(function () use ($request, $compra) {
                 Inventario::bloquear(...$compra->lotes()->distinct()->pluck('tipo_especie_id')->all());
@@ -194,6 +202,7 @@ class CompraController extends Controller
             ->with('success', 'Compra actualizada correctamente.');
     }
 
+    //elimina la compra si ninguno de sus lotes se ha trasladado
     public function destroy(Compra $compra)
     {
         $eliminada = DB::transaction(function () use ($compra) {
@@ -219,6 +228,7 @@ class CompraController extends Controller
             ->with('success', 'Compra eliminada correctamente.');
     }
 
+    //elimina un lote de la compra si todavia no se ha trasladado
     public function destroyLote(Compra $compra, Lote $lote)
     {
         abort_if($lote->compra_id != $compra->id, 404);
@@ -244,6 +254,7 @@ class CompraController extends Controller
             ->with('success_lote', 'Lote eliminado correctamente.');
     }
 
+    //recalcula el monto total de la compra (cantidad x valor de cada lote)
     private function recalcularMonto(Compra $compra): void
     {
         $compra->load('lotes.denominacion');

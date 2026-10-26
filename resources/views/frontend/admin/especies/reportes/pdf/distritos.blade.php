@@ -1,4 +1,4 @@
-{{-- PDF: EXISTENCIAS POR DISTRITO - existencia al corte por lote, con sus rangos, valuada a precio de venta --}}
+{{--PDF: EXISTENCIAS POR DISTRITO - existencia al corte por lote, con sus rangos, valuada a precio de venta--}}
 @php $tituloReporte = 'Libro de Existencias por Distrito'; @endphp
 @include('frontend.admin.especies.reportes.pdf.header')
 

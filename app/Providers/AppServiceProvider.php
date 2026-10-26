@@ -12,25 +12,27 @@ use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
+    //registro de servicios (sin uso por ahora)
     public function register(): void
     {
         //
     }
 
+    //permisos del menu, paginacion y limite de busquedas publicas
     public function boot(): void
     {
         //define el Gate admin-access que usa el filtro de menu de AdminLTE
         //para mostrar u ocultar items del sidebar segun el rol del usuario
         Gate::define('admin-access',  fn($user) => $user->hasRole('admin'));
 
-        // admin y empleado comparten dashboard, anos, especies y consultas
+        //admin y empleado comparten dashboard, anos, especies y consultas
         Gate::define('shared-access', fn($user) => $user->hasRole('admin') || $user->hasRole('empleado'));
 
         //gate para mostrar items de sesion solo a usuarios autenticados
         //cuando no hay sesion Gate::check retorna false y el item queda oculto
         Gate::define('auth-access',   fn($user) => true);
 
-        //los enlaces de paginacion usan el estilo de Bootstrap 4, que es el de AdminLTE
+        //los enlaces de paginacion usan el estilo de bootstrap 4, que es el de AdminLTE
         Paginator::useBootstrapFour();
 
         //la busqueda publica de constancias se limita por IP para impedir probar NIT/DUI en masa;

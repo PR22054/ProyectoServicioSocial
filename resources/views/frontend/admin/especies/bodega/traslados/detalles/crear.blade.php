@@ -3,7 +3,7 @@
 
 @section('page_content')
 
-{{-- FORMULARIO PARA AGREGAR UN LOTE Y RANGO AL TRASLADO; EL AJAX CAMBIA SEGUN EL TIPO --}}
+{{--FORMULARIO PARA AGREGAR UN LOTE Y RANGO AL TRASLADO; EL AJAX CAMBIA SEGUN EL TIPO--}}
     <div class="card mb-3">
         <div class="card-body py-2 d-flex justify-content-between align-items-center">
             <span>
@@ -38,6 +38,7 @@
                 </div>
             @endif
 
+            {{--formulario del detalle: lote de origen y rango que se envia--}}
             <form method="POST" action="{{ route('admin.especies.bodega.traslado.detalle.store', $traslado) }}">
                 @csrf
 
@@ -108,14 +109,16 @@
 @stop
 
 @push('js')
+{{--carga por AJAX los lotes disponibles en el origen y calcula la cantidad--}}
 <script>
-// Tipo del traslado para elegir el endpoint correcto
+//tipo del traslado para elegir el endpoint correcto
 const TRASLADO_TIPO       = '{{ $traslado->tipo }}';
 const TRASLADO_ORIGEN_ID  = {{ $traslado->origen_distrito_id ?? 'null' }};
 
 const ajaxBodegaUrl    = '{{ route("admin.especies.ajax.lotes-stock") }}';
 const ajaxDistritoUrl  = '{{ route("admin.especies.ajax.lotes-distrito-stock") }}';
 
+//muestra el rango y lo disponible del lote elegido
 function mostrarInfoLote() {
     const loteEl = document.getElementById('lote_id');
     const infoEl = document.getElementById('rangosInfo');
@@ -130,6 +133,7 @@ function mostrarInfoLote() {
     infoEl.style.display = '';
 }
 
+//pide al servidor los lotes con existencia en el origen
 function cargarLotes(restoreLoteId) {
     const tipoId = document.getElementById('tipo_especie_id').value;
     const loteEl = document.getElementById('lote_id');
@@ -144,7 +148,7 @@ function cargarLotes(restoreLoteId) {
         return;
     }
 
-    // Endpoint y parametros segun tipo de traslado
+    //endpoint y parametros segun tipo de traslado
     let url;
     if (TRASLADO_TIPO === 'bodega_distrito') {
         url = ajaxBodegaUrl + '?tipo_especie_id=' + tipoId;
@@ -180,6 +184,7 @@ function cargarLotes(restoreLoteId) {
 document.getElementById('tipo_especie_id').addEventListener('change', () => cargarLotes(null));
 document.getElementById('lote_id').addEventListener('change', mostrarInfoLote);
 
+//calcula la cantidad del rango escrito
 function calcCantidad() {
     const ini  = parseInt(document.getElementById('numero_inicio').value);
     const fin  = parseInt(document.getElementById('numero_fin').value);

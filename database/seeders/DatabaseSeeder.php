@@ -8,6 +8,7 @@ use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
+    //llama a los seeders en orden
     public function run(): void
     {
         //primero crea  roles para poder asignarlos a usuarios
@@ -30,7 +31,7 @@ class DatabaseSeeder extends Seeder
         ]);
         $empleado->assignRole('empleado');
 
-        // movimientos de nov-2025 a mar-2026 de los libros de Tesoreria (necesita un usuario admin)
+        //movimientos de nov-2025 a jun-2026 de los libros de tesoreria (necesita un usuario admin)
         $this->call(DatosInicialesEspeciesSeeder::class);
     }
 }

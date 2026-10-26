@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+//controlador de realizaciones de especies por distrito
 class RealizacionController extends Controller
 {
     //CONTROLADOR DE REALIZACIONES - gestiona historial, registro, eliminacion y endpoint AJAX de stock por distrito
@@ -28,7 +29,7 @@ class RealizacionController extends Controller
             ->when($distFiltro, fn($q) => $q->where('distrito_id', $distFiltro))
             ->when($tipoFiltro, fn($q) => $q->where('tipo_especie_id', $tipoFiltro));
 
-        // El total cobrado es de todo el filtro, no solo de la pagina visible
+        //el total cobrado es de todo el filtro, no solo de la pagina visible
         $totalCobrado  = (clone $consulta)->sum('monto_cobrado');
         $realizaciones = $consulta->orderByDesc('fecha')->orderByDesc('id')->paginate(25)->withQueryString();
 
@@ -36,6 +37,7 @@ class RealizacionController extends Controller
             compact('realizaciones', 'totalCobrado', 'distritos', 'tipos', 'distFiltro', 'tipoFiltro'));
     }
 
+    //muestra el formulario para registrar una realizacion
     public function crear()
     {
         $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
@@ -45,6 +47,7 @@ class RealizacionController extends Controller
             compact('distritos', 'tipos'));
     }
 
+    //valida que el distrito tenga el rango disponible a esa fecha, calcula el monto cobrado y guarda la realizacion
     public function store(Request $request)
     {
         $datos = $this->datos($request);
@@ -61,6 +64,7 @@ class RealizacionController extends Controller
             ->with('success', "Realización registrada: {$datos['cantidad']} documentos por $" . number_format($datos['monto_cobrado'], 2) . '.');
     }
 
+    //muestra el formulario para editar una realizacion
     public function editar(Realizacion $realizacion)
     {
         $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
@@ -70,6 +74,7 @@ class RealizacionController extends Controller
             compact('realizacion', 'distritos', 'tipos'));
     }
 
+    //guarda los cambios de una realizacion revisando de nuevo la existencia del distrito
     public function update(Request $request, Realizacion $realizacion)
     {
         $datos = $this->datos($request);
@@ -78,7 +83,7 @@ class RealizacionController extends Controller
             Inventario::bloquear($realizacion->tipo_especie_id, $datos['tipo_especie_id']);
             $realizacion->refresh();
 
-            // Se ignora la propia realizacion al validar solapamientos
+            //se ignora la propia realizacion al validar solapamientos
             $this->validarRango($datos, $realizacion->id);
 
             $antes = $this->pares($realizacion);
@@ -90,15 +95,16 @@ class RealizacionController extends Controller
             ->with('success', 'Realización actualizada correctamente.');
     }
 
+    //elimina una realizacion; sus numeros vuelven a la existencia del distrito
     public function destroy(Realizacion $realizacion)
     {
         $realizacion->delete();
 
-        // back() conserva la pagina y los filtros del historial
+        //back() conserva la pagina y los filtros del historial
         return back()->with('success', 'Realización eliminada correctamente.');
     }
 
-    // Valida el formulario y devuelve los campos listos para guardar
+    //valida el formulario y devuelve los campos listos para guardar
     private function datos(Request $request): array
     {
         $request->validate([
@@ -109,7 +115,6 @@ class RealizacionController extends Controller
             'numero_inicio'        => 'required|integer|min:1|max:999999999',
             'numero_fin'           => 'required|integer|min:1|max:999999999|gte:numero_inicio',
             'fecha'                => 'required|date|before_or_equal:today',
-            'nombre_contribuyente' => 'nullable|string|max:200',
         ], [
             'fecha.before_or_equal'    => 'La fecha no puede ser posterior a hoy.',
             'distrito_id.required'     => 'Seleccione un distrito.',
@@ -132,8 +137,8 @@ class RealizacionController extends Controller
         $fin      = (int) $request->numero_fin;
         $cantidad = $fin - $inicio + 1;
 
-        // Se cobra el precio de venta del distrito; el valor de la denominacion es el del libro y
-        // puede ser el costo (carnet: $0.09 en libro, $2.00 cobrado). Sin precio de venta no se cobra.
+        //se cobra el precio de venta del distrito; el valor de la denominacion es el del libro y
+        //puede ser el costo (carnet: $0.09 en libro, $2.00 cobrado). sin precio de venta no se cobra.
         $precioVenta = Tarifas::precioVenta((int) $request->distrito_id, $denom) ?? 0;
 
         return [
@@ -145,15 +150,12 @@ class RealizacionController extends Controller
             'numero_fin'           => $fin,
             'cantidad'             => $cantidad,
             'fecha'                => $request->fecha,
-            'nombre_contribuyente' => $request->nombre_contribuyente,
             'monto_cobrado'        => round($cantidad * $precioVenta, 2),
         ];
     }
 
-    /**
-     * Reglas propias del rango. Que el distrito tuviera esos documentos en esa fecha
-     * lo verifica Inventario::asegurar despues de escribir.
-     */
+    //reglas propias del rango. que el distrito tuviera esos documentos en esa fecha
+    //lo verifica Inventario::asegurar despues de escribir.
     private function validarRango(array $d, ?int $ignorarId = null): void
     {
         $serie = fn($q) => $d['serie'] === null ? $q->whereNull('serie') : $q->where('serie', $d['serie']);
@@ -196,7 +198,7 @@ class RealizacionController extends Controller
         }
     }
 
-    // Pares distrito-lote cuya historia toca esta realizacion
+    //pares distrito-lote cuya historia toca esta realizacion
     private function pares(Realizacion $r): array
     {
         return Inventario::lotesDelRango($r->tipo_especie_id, $r->serie, $r->numero_inicio, $r->numero_fin)
@@ -204,7 +206,7 @@ class RealizacionController extends Controller
             ->all();
     }
 
-    // AJAX: lo que el distrito tiene de un tipo, agrupado por denominacion y serie
+    //AJAX: lo que el distrito tiene de un tipo, agrupado por denominacion y serie
     public function ajaxInfoDistritoTipo(Request $request)
     {
         $distritoId = (int) $request->distrito_id;

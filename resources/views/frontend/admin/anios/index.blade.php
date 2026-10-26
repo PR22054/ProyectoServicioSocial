@@ -20,8 +20,9 @@
     @endif
 
     <div class="card">
-        {{--formulario para agregar un nuevo ano con seleccion de archivo Excel--}}
+        {{--formulario para agregar un nuevo ano con seleccion de archivo excel--}}
         <div class="card-header">
+            {{--formulario para agregar un ano--}}
             <form action="{{ route('admin.anios.store') }}" method="POST">
                 @csrf
                 <div class="form-row align-items-end">
@@ -55,6 +56,8 @@
             </form>
         </div>
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--tabla de anos registrados con sus acciones--}}
             <table class="table table-striped mb-0">
                 <thead class="thead-dark">
                     <tr>
@@ -75,7 +78,7 @@
                             @endif
                         </td>
                         <td>
-                            <a href="{{ route('admin.anios.edit', $anio) }}" class="btn btn-sm btn-warning">
+                            <a href="{{ route('admin.anios.edit', $anio) }}" class="btn btn-sm btn-warning" data-toggle="tooltip" title="Editar año">
                                 <i class="fas fa-edit"></i>
                             </a>
                             <form id="del-anio-{{ $anio->id }}" action="{{ route('admin.anios.destroy', $anio) }}" method="POST" class="d-inline">
@@ -83,7 +86,7 @@
                                 @method('DELETE')
                                 <button type="button" class="btn btn-sm btn-danger"
                                     data-swal-delete
-                                    data-form="del-anio-{{ $anio->id }}"
+                                    data-toggle="tooltip" title="Eliminar año" data-form="del-anio-{{ $anio->id }}"
                                     data-msg="¿Eliminar el año {{ $anio->anio }}?"
                                     data-icon="warning">
                                     <i class="fas fa-trash"></i>
@@ -98,6 +101,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 

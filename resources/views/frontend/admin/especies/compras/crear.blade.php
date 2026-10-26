@@ -3,7 +3,7 @@
 
 @section('page_content')
 
-{{-- FORMULARIO PASO 1: DATOS GENERALES DE LA COMPRA, LUEGO SE AGREGAN LOS LOTES --}}
+{{--FORMULARIO PASO 1: DATOS GENERALES DE LA COMPRA, LUEGO SE AGREGAN LOS LOTES--}}
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Paso 1 — Datos de la compra</h3>
@@ -19,6 +19,7 @@
                     @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
                 </div>
             @endif
+            {{--datos de la factura de compra--}}
             <form method="POST" action="{{ route('admin.especies.compras.store') }}">
                 @csrf
                 <div class="row">

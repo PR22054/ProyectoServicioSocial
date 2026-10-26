@@ -1,7 +1,7 @@
-{{-- ENCABEZADO COMPARTIDO PARA TODOS LOS PDF DE REPORTES - REQUIERE $tituloReporte.
-     Opcionales: $codigoFormulario, $versionFormulario, $vigenciaFormulario, $encabezadoCaja,
+{{--ENCABEZADO COMPARTIDO PARA TODOS LOS PDF DE REPORTES - REQUIERE $tituloReporte.
+     opcionales: $codigoFormulario, $versionFormulario, $vigenciaFormulario, $encabezadoCaja,
      $encabezadoCentrado (codigo, version y vigencia centrados), $sinRecuadro (sin logo ni codigo),
-     $lineasTitulo (lineas centradas en lugar de alcaldia y NIT) y $sinNit (sin las lineas de alcaldia y NIT) --}}
+     $lineasTitulo (lineas centradas en lugar de alcaldia y NIT) y $sinNit (sin las lineas de alcaldia y NIT)--}}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -31,6 +31,7 @@
 <body>
 
 @unless($sinRecuadro ?? false)
+{{--recuadro con logo, titulo, codigo, version y vigencia--}}
 <table class="ht">
   <tr>
     <td rowspan="3" style="width:28%; text-align:center;">

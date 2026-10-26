@@ -3,9 +3,10 @@
 
 @section('page_content')
 
-    {{-- filtro --}}
+    {{--filtro--}}
     <div class="card">
         <div class="card-body py-2">
+            {{--filtros por distrito y tipo--}}
             <form method="GET" action="{{ route('admin.especies.distritos.stock') }}" class="form-inline">
                 <label class="mr-2">Filtrar por distrito:</label>
                 <select name="distrito_id" class="form-control form-control-sm mr-2">
@@ -29,6 +30,8 @@
             <h3 class="card-title">Stock en distritos ({{ $filas->count() }} lote(s))</h3>
         </div>
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--existencias del distrito por lote--}}
             <table class="table table-striped table-sm mb-0">
                 <thead>
                     <tr>
@@ -105,6 +108,7 @@
                 </tfoot>
                 @endif
             </table>
+            </div>
         </div>
     </div>
 

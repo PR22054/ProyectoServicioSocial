@@ -3,7 +3,7 @@
 
 @section('page_content')
 
-{{-- FORMULARIO PARA CORREGIR UNA REALIZACION YA REGISTRADA --}}
+{{--FORMULARIO PARA CORREGIR UNA REALIZACION YA REGISTRADA--}}
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Editar realización #{{ $realizacion->id }}</h3>
@@ -23,6 +23,7 @@
                 </div>
             @endif
 
+            {{--datos de la realizacion--}}
             <form method="POST" action="{{ route('admin.especies.realizaciones.update', $realizacion) }}">
                 @csrf @method('PATCH')
 
@@ -61,7 +62,7 @@
                     </div>
                 </div>
 
-                {{-- info de stock disponible (sin contar esta realizacion) --}}
+                {{--info de stock disponible (sin contar esta realizacion)--}}
                 <div id="stockInfo" class="alert alert-info py-2" style="display:none">
                     <div class="d-flex flex-wrap" style="gap:1.5rem">
                         <span><strong>Recibido:</strong> <span id="stockRecibido">—</span></span>
@@ -132,14 +133,6 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Nombre del contribuyente <small class="text-muted">(opcional)</small></label>
-                    <input type="text" name="nombre_contribuyente"
-                           class="form-control" maxlength="200"
-                           value="{{ old('nombre_contribuyente', $realizacion->nombre_contribuyente) }}"
-                           placeholder="Nombre de quien realizó el trámite">
-                </div>
-
                 <div class="d-flex justify-content-between">
                     <a href="{{ route('admin.especies.realizaciones.historial') }}" class="btn btn-secondary">
                         Cancelar
@@ -155,6 +148,7 @@
 @stop
 
 @push('js')
+{{--carga los tipos, denominaciones y series con existencia y calcula el monto--}}
 <script>
 const ajaxUrl = '{{ route("admin.especies.ajax.realizacion-info") }}';
 const IGNORAR = {{ $realizacion->id }};
@@ -191,7 +185,7 @@ function cargarInfo(restoreDenom, restoreSerie) {
             document.getElementById('stockDisp').textContent      = Number(data.disponible).toLocaleString();
             infoEl.style.display = '';
 
-            // Solo las denominaciones de las que el distrito tiene documentos
+            //solo las denominaciones de las que el distrito tiene documentos
             const dens = [];
             grupos.forEach(g => {
                 if (!dens.some(d => d.id === g.denominacion_id)) dens.push({ id: g.denominacion_id, etiqueta: g.etiqueta });
@@ -216,7 +210,7 @@ function cargarInfo(restoreDenom, restoreSerie) {
         });
 }
 
-// Una opcion por serie y sin marcador vacio: el valor '' significa "sin serie"
+//una opcion por serie y sin marcador vacio: el valor '' significa "sin serie"
 function cargarSeries(restoreSerie) {
     const opciones = grupos.filter(g => g.denominacion_id === parseInt(denomEl.value));
     serieEl.innerHTML = '';
@@ -237,12 +231,13 @@ function cargarSeries(restoreSerie) {
     mostrarRangos();
 }
 
+//muestra los rangos disponibles de la serie elegida
 function mostrarRangos() {
     const g = grupos.find(g => g.denominacion_id === parseInt(denomEl.value) && (g.serie ?? '') === serieEl.value);
     document.getElementById('stockRangos').textContent = g
         ? g.rangos.map(r => r.inicio === r.fin ? r.inicio.toLocaleString() : r.inicio.toLocaleString() + '–' + r.fin.toLocaleString()).join(' | ')
         : '—';
-    valorDenom = g ? g.precio_venta : null;   // precio de venta del distrito; null si no se vende
+    valorDenom = g ? g.precio_venta : null;   //precio de venta del distrito; null si no se vende
     calcMonto();
 }
 
@@ -251,6 +246,7 @@ document.getElementById('tipo_especie_id').addEventListener('change', () => carg
 denomEl.addEventListener('change', () => cargarSeries(null));
 serieEl.addEventListener('change', mostrarRangos);
 
+//calcula la cantidad y el monto estimado
 function calcMonto() {
     const ini = parseInt(document.getElementById('numero_inicio').value);
     const fin = parseInt(document.getElementById('numero_fin').value);

@@ -21,14 +21,14 @@ use Mccarlosen\LaravelMpdf\Facades\LaravelMpdf as PDF;
 
 class ReporteController extends Controller
 {
-    //CONTROLADOR DE REPORTES - genera PDF para los 6 tipos de reporte del modulo de especies municipales
+    //CONTROLADOR DE REPORTES - genera los PDF de los reportes del modulo de especies municipales
     private array $meses = [
         1 => 'Enero', 2 => 'Febrero', 3 => 'Marzo', 4 => 'Abril',
         5 => 'Mayo', 6 => 'Junio', 7 => 'Julio', 8 => 'Agosto',
         9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre',
     ];
 
-    // Mensajes claros para los filtros de los reportes
+    //mensajes claros para los filtros de los reportes
     private array $mensajes = [
         'distrito_id.required'       => 'Seleccione un distrito.',
         'distrito_id.exists'         => 'El distrito seleccionado no existe.',
@@ -48,18 +48,19 @@ class ReporteController extends Controller
         'fecha_hasta.after_or_equal' => 'La fecha "hasta" es anterior a la fecha "desde". Elija una fecha "hasta" igual o posterior a la fecha "desde".',
     ];
 
+    //margenes de todos los PDF de reportes
     private function pdfConfig(): array
     {
         return ['margin_top' => 15, 'margin_bottom' => 15, 'margin_left' => 15, 'margin_right' => 15];
     }
 
-    // Monto truncado al centavo (22.875 -> 22.87); %.15g quita el ruido del punto flotante (29,758 x 0.015 = 446.37)
+    //monto truncado al centavo (22.875 -> 22.87); %.15g quita el ruido del punto flotante (29,758 x 0.015 = 446.37)
     private function truncar(float $v): float
     {
         return floor((float) sprintf('%.15g', $v * 100)) / 100;
     }
 
-    // ─── LIBRO DE ESPECIES ───────────────────────────────────────────────────
+    //LIBRO DE ESPECIES
     public function libro(Request $request)
     {
         $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
@@ -78,6 +79,7 @@ class ReporteController extends Controller
         return view('frontend.admin.especies.reportes.libro', compact('distritos', 'tipos'));
     }
 
+    //genera el PDF del libro de especies de un distrito, tipo y mes
     private function pdfLibro(Request $request)
     {
         $distrito    = Distrito::findOrFail($request->distrito_id);
@@ -91,34 +93,31 @@ class ReporteController extends Controller
             ->stream("libro-{$distrito->codigo}-{$request->mes}-{$request->anio}.pdf");
     }
 
-    /**
-     * Libro de Especies Municipales (TESO-008-FORM) de un distrito, tipo y mes, en el orden y la forma de los
-     * libros de Tesoreria: saldo anterior, compras por factura, traslados recibidos, realizaciones, nulas,
-     * traslados enviados y saldo a nueva cuenta. Los tipos que se llevan en unidades no se valuan.
-     */
+    //libro de especies municipales (TESO-008-FORM) de un distrito, tipo y mes, en el orden y la forma de los
+    //libros de tesoreria: saldo anterior, compras por factura, traslados recibidos, realizaciones, nulas,
+    //traslados enviados y saldo a nueva cuenta. los tipos que se llevan en unidades no se valuan.
     public function datosLibro(Distrito $distrito, TipoEspecie $tipo, int $mes, int $anio, ?Denominacion $denomFiltro = null): array
     {
         $inicioMes = Carbon::create($anio, $mes, 1)->startOfMonth();
         $finMes    = $inicioMes->copy()->endOfMonth();
         $unidades  = (bool) $tipo->unidades;
         $config    = DistritoTipoEspecie::where('distrito_id', $distrito->id)->where('tipo_especie_id', $tipo->id)->first();
-        $cajas     = Inventario::cajas($distrito->id, $tipo->id, $finMes);
 
-        $fila = fn(?string $caja, int $cant, float $valor, int $del, int $al, ?string $serie) => [
-            'caja' => $caja, 'cantidad' => $cant, 'valor' => $valor, 'del' => $del, 'al' => $al, 'serie' => $serie,
+        $fila = fn(int $cant, float $valor, int $del, int $al, ?string $serie) => [
+            'cantidad' => $cant, 'valor' => $valor, 'del' => $del, 'al' => $al, 'serie' => $serie,
             'monto' => $unidades ? $cant : $cant * $valor,
         ];
         $total = fn(array $filas) => array_sum(array_column($filas, 'monto'));
 
-        // Con filtro de denominacion todas las secciones se acotan a ella, si no el libro no cuadra
+        //con filtro de denominacion todas las secciones se acotan a ella, si no el libro no cuadra
         $loteFiltro = fn($q) => $q->where('tipo_especie_id', $tipo->id)
             ->when($denomFiltro, fn($q2) => $q2->where('denominacion_id', $denomFiltro->id));
 
         $saldo = fn(Carbon $hasta) => array_map(
-            fn($r) => $fila($r['caja'], $r['cantidad'], $r['valor'], $r['inicio'], $r['fin'], $r['lote']->serie),
+            fn($r) => $fila($r['cantidad'], $r['valor'], $r['inicio'], $r['fin'], $r['lote']->serie),
             Inventario::filasSaldo($distrito->id, $tipo->id, $hasta, $denomFiltro?->id));
 
-        // Movimientos de traslado del mes, agrupados por traslado y factura como los asienta el libro
+        //movimientos de traslado del mes, agrupados por traslado y factura como los asienta el libro
         $traslados = fn(string $columna) => TrasladoDetalle::with('traslado.distrito', 'traslado.origenDistrito', 'lote.compra', 'lote.denominacion')
             ->whereHas('traslado', fn($q) => $q->where($columna, $distrito->id)->whereBetween('fecha', [$inicioMes, $finMes]))
             ->whereHas('lote', $loteFiltro)
@@ -128,7 +127,7 @@ class ReporteController extends Controller
             ->map(fn($ds) => [
                 'traslado' => $ds->first()->traslado,
                 'factura'  => $ds->first()->lote->compra->numero_factura ?? null,
-                'filas'    => $ds->map(fn($d) => $fila(null, $d->cantidad, (float) $d->lote->denominacion->valor,
+                'filas'    => $ds->map(fn($d) => $fila($d->cantidad, (float) $d->lote->denominacion->valor,
                                                        $d->numero_inicio, $d->numero_fin, $d->lote->serie))->values()->all(),
             ])->values();
 
@@ -140,8 +139,7 @@ class ReporteController extends Controller
             ->whereBetween('fecha', [$inicioMes, $finMes])
             ->when($denomFiltro, fn($q) => $q->where('denominacion_id', $denomFiltro->id))
             ->orderBy('fecha')->orderBy('id')->get()
-            ->map(fn($r) => $fila(Inventario::cajaDe($cajas[(string) $r->serie] ?? [], $r->numero_inicio), $r->cantidad,
-                                  (float) $r->denominacion->valor, $r->numero_inicio, $r->numero_fin, $r->serie))
+            ->map(fn($r) => $fila($r->cantidad, (float) $r->denominacion->valor, $r->numero_inicio, $r->numero_fin, $r->serie))
             ->all();
 
         $nulas = Nula::with('trasladoDetalle.lote.denominacion')
@@ -149,8 +147,7 @@ class ReporteController extends Controller
             ->whereHas('trasladoDetalle.lote', $loteFiltro)
             ->whereBetween('fecha', [$inicioMes, $finMes])
             ->orderBy('fecha')->orderBy('id')->get()
-            ->map(fn($n) => $fila(Inventario::cajaDe($cajas[(string) $n->trasladoDetalle->lote->serie] ?? [], $n->numero_inicio),
-                                  $n->numero_fin - $n->numero_inicio + 1, (float) $n->trasladoDetalle->lote->denominacion->valor,
+            ->map(fn($n) => $fila($n->numero_fin - $n->numero_inicio + 1, (float) $n->trasladoDetalle->lote->denominacion->valor,
                                   $n->numero_inicio, $n->numero_fin, $n->trasladoDetalle->lote->serie))
             ->all();
 
@@ -159,7 +156,7 @@ class ReporteController extends Controller
 
         $secciones = [$seccion('inicio', $inicioMes, 'SALDO ANTERIOR', $saldo($inicioMes->copy()->subDay()))];
 
-        // Lo que llega de bodega es la compra al M.H. del distrito; lo que llega de otro distrito, traslado
+        //lo que llega de bodega es la compra al M.H. del distrito; lo que llega de otro distrito, traslado
         $compras   = $entradas->filter(fn($g) => $g['traslado']->tipo === 'bodega_distrito');
         $recibidos = $entradas->reject(fn($g) => $g['traslado']->tipo === 'bodega_distrito');
 
@@ -169,7 +166,7 @@ class ReporteController extends Controller
         foreach ($recibidos as $g) $secciones[] = $seccion('entrada', $g['traslado']->fecha, 'POR TRASLADOS ' . $g['traslado']->origenDistrito->nombre_reporte, $g['filas']);
         if ($recibidos->isEmpty()) $secciones[] = $seccion('entrada', null, 'POR TRASLADOS', []);
 
-        // Algunos libros suman las nulas al total de realizaciones; los demas las descuentan aparte
+        //algunos libros suman las nulas al total de realizaciones; los demas las descuentan aparte
         $nulasJuntas = (bool) $config?->nulas_en_realizaciones;
         $real        = $seccion('realizacion', $finMes, 'POR REALIZACIONES EN EL MES', $realizaciones);
         if ($nulasJuntas) $real['total'] += $total($nulas);
@@ -202,7 +199,7 @@ class ReporteController extends Controller
         ];
     }
 
-    // ─── EXISTENCIAS EN BODEGA ───────────────────────────────────────────────
+    //EXISTENCIAS EN BODEGA
     public function bodega(Request $request)
     {
         $tipos = TipoEspecie::orderBy('nombre')->get();
@@ -219,26 +216,27 @@ class ReporteController extends Controller
         return view('frontend.admin.especies.reportes.bodega', compact('tipos'));
     }
 
+    //genera el PDF de existencias en bodega de un tipo
     private function pdfBodega(Request $request)
     {
         $tipo   = TipoEspecie::findOrFail($request->tipo_especie_id);
         $desde  = Carbon::parse($request->fecha_desde)->startOfDay();
         $hasta  = Carbon::parse($request->fecha_hasta)->endOfDay();
 
-        // Lotes de compras registradas dentro del rango de fechas
+        //lotes de compras registradas dentro del rango de fechas
         $rangos = LoteRango::whereHas('lote',
                 fn($q) => $q->where('tipo_especie_id', $tipo->id)
                             ->whereHas('compra', fn($q2) => $q2->whereBetween('fecha', [$desde, $hasta])))
             ->with(['lote.compra', 'lote.denominacion'])
             ->orderBy('lote_id')->orderBy('numero_inicio')->get();
 
-        // Enviado desde bodega (solo bodega_distrito reduce el stock de bodega)
+        //enviado desde bodega (solo bodega_distrito reduce el stock de bodega)
         $enviado = TrasladoDetalle::whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipo->id))
             ->whereHas('traslado', fn($q) => $q->where('tipo', 'bodega_distrito')->where('fecha', '<=', $hasta))
             ->selectRaw('lote_id, SUM(cantidad) as total')
             ->groupBy('lote_id')->pluck('total', 'lote_id');
 
-        // Devuelto a bodega (distrito_bodega aumenta el stock de bodega)
+        //devuelto a bodega (distrito_bodega aumenta el stock de bodega)
         $devuelto = TrasladoDetalle::whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipo->id))
             ->whereHas('traslado', fn($q) => $q->where('tipo', 'distrito_bodega')->where('fecha', '<=', $hasta))
             ->selectRaw('lote_id, SUM(cantidad) as total')
@@ -267,7 +265,7 @@ class ReporteController extends Controller
             ->stream("bodega-{$tipo->id}-{$request->fecha_desde}-{$request->fecha_hasta}.pdf");
     }
 
-    // ─── EXISTENCIAS POR DISTRITO ────────────────────────────────────────────
+    //EXISTENCIAS POR DISTRITO
     public function distritos(Request $request)
     {
         $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
@@ -285,13 +283,14 @@ class ReporteController extends Controller
         return view('frontend.admin.especies.reportes.distritos', compact('distritos', 'tipos'));
     }
 
+    //genera el PDF de existencias de un distrito a una fecha de corte
     private function pdfDistritos(Request $request)
     {
         $distrito   = Distrito::findOrFail($request->distrito_id);
         $tipo       = TipoEspecie::findOrFail($request->tipo_especie_id);
         $fechaCorte = Carbon::parse($request->fecha_corte)->endOfDay();
 
-        // Una fila por lote recibido: lo que queda al corte y en que rangos, acotado por serie
+        //una fila por lote recibido: lo que queda al corte y en que rangos, acotado por serie
         $rows = Inventario::distrito($distrito->id, $tipo->id, $fechaCorte)->values();
 
         $html = view('frontend.admin.especies.reportes.pdf.distritos',
@@ -301,7 +300,7 @@ class ReporteController extends Controller
             ->stream("distrito-{$distrito->codigo}-{$request->fecha_corte}.pdf");
     }
 
-    // ─── REALIZACIONES POR PERIODO ───────────────────────────────────────────
+    //ESPECIES REALIZADAS
     public function realizaciones(Request $request)
     {
         $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
@@ -310,7 +309,7 @@ class ReporteController extends Controller
         if ($request->has('generar')) {
             $request->validate([
                 'distrito_id'     => 'required|exists:distritos,id',
-                // "todos" reporta todas las especies del distrito
+                //"todos" reporta todas las especies del distrito
                 'tipo_especie_id' => ['required', Rule::when($request->tipo_especie_id !== 'todos', 'exists:tipo_especies,id')],
                 'mes'             => 'required|integer|between:1,12',
                 'anio'            => 'required|integer|min:2020',
@@ -321,6 +320,7 @@ class ReporteController extends Controller
         return view('frontend.admin.especies.reportes.realizaciones', compact('distritos', 'tipos'));
     }
 
+    //genera el PDF de especies realizadas del mes: resumen o detallado
     private function pdfRealizaciones(Request $request)
     {
         $distrito  = Distrito::findOrFail($request->distrito_id);
@@ -336,10 +336,8 @@ class ReporteController extends Controller
             ->stream("realizaciones-{$distrito->codigo}-{$request->mes}-{$request->anio}" . ($detallado ? '-detalle' : '') . '.pdf');
     }
 
-    /**
-     * Reporte detallado del mes: cada realizacion y cada nula con fecha, denominacion, serie y rango, agrupadas por tipo.
-     * Las nulas no cobran; el descargo es cantidad x costo de la tarifa del distrito, truncado al centavo.
-     */
+    //reporte detallado del mes: cada realizacion y cada nula con fecha, denominacion, serie y rango, agrupadas por tipo.
+    //las nulas no cobran; el descargo es cantidad x costo de la tarifa del distrito, truncado al centavo.
     public function datosRealizacionesDetalle(Distrito $distrito, int $mes, int $anio, ?TipoEspecie $tipo = null): array
     {
         $desde = Carbon::create($anio, $mes, 1)->startOfMonth();
@@ -396,13 +394,11 @@ class ReporteController extends Controller
         ];
     }
 
-    /**
-     * Especies municipales realizadas en el mes (hoja "REALIZADAS" de Tesoreria), por tarifa del distrito:
-     * cantidad, cobro (PRECIO DE VTA.) y descargo a costo. Las nulas van en su propia fila si el distrito la lleva;
-     * si no, se suman a la fila de su denominacion. Sale cada tarifa que el distrito tuvo en existencia en el mes
-     * o que se movio, aunque quede en cero. El descargo de cada fila se trunca al centavo (22.875 -> 22.87) y los totales
-     * suman esos montos.
-     */
+    //especies municipales realizadas en el mes (hoja "REALIZADAS" de tesoreria), por tarifa del distrito:
+    //cantidad, cobro (PRECIO DE VTA.) y descargo a costo. las nulas van en su propia fila si el distrito la lleva;
+    //si no, se suman a la fila de su denominacion. sale cada tarifa que el distrito tuvo en existencia en el mes
+    //o que se movio, aunque quede en cero. el descargo de cada fila se trunca al centavo (22.875 -> 22.87) y los totales
+    //suman esos montos.
     public function datosRealizaciones(Distrito $distrito, int $mes, int $anio, ?TipoEspecie $tipo = null): array
     {
         $desde = Carbon::create($anio, $mes, 1)->startOfMonth();
@@ -436,7 +432,7 @@ class ReporteController extends Controller
 
             $filas = [];
             foreach ($denoms as $den) {
-                // sin tarifa del distrito: los valores de la denominacion, al final del grupo
+                //sin tarifa del distrito: los valores de la denominacion, al final del grupo
                 $tar       = $tarifas[$den->id] ?? null;
                 $costo     = $tar?->precio_costo ?? $den->precio_costo;
                 $costo     = $costo === null ? null : (float) $costo;
@@ -482,7 +478,7 @@ class ReporteController extends Controller
         ];
     }
 
-    // ─── HISTORIAL DE TRASLADOS ──────────────────────────────────────────────
+    //HISTORIAL DE TRASLADOS
     public function traslados(Request $request)
     {
         $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
@@ -501,6 +497,7 @@ class ReporteController extends Controller
         return view('frontend.admin.especies.reportes.traslados', compact('distritos', 'tipos'));
     }
 
+    //genera el PDF del historial de traslados de un distrito
     private function pdfTraslados(Request $request)
     {
         $distrito = Distrito::findOrFail($request->distrito_id);
@@ -508,7 +505,7 @@ class ReporteController extends Controller
         $desde    = Carbon::parse($request->fecha_desde)->startOfDay();
         $hasta    = Carbon::parse($request->fecha_hasta)->endOfDay();
 
-        // Entradas y salidas del distrito: lo recibido y lo devuelto a bodega o enviado a otro distrito
+        //entradas y salidas del distrito: lo recibido y lo devuelto a bodega o enviado a otro distrito
         $detalles = TrasladoDetalle::whereHas('traslado', fn($q) => $q
                 ->where(fn($q2) => $q2->where('distrito_id', $distrito->id)->orWhere('origen_distrito_id', $distrito->id))
                 ->whereBetween('fecha', [$desde, $hasta]))
@@ -523,14 +520,14 @@ class ReporteController extends Controller
             ->stream("traslados-{$distrito->codigo}.pdf");
     }
 
-    // ─── REPORTE MENSUAL ─────────────────────────────────────────────────────
+    //REPORTE MENSUAL
     public function mensual(Request $request)
     {
         if ($request->has('generar')) {
             $request->validate([
                 'mes'         => 'required|integer|between:1,12',
                 'anio'        => 'required|integer|min:2020',
-                // vacio o "todos" incluye todos los distritos
+                //vacio o "todos" incluye todos los distritos
                 'distrito_id' => ['nullable', Rule::when($request->distrito_id !== 'todos', 'exists:distritos,id')],
             ], $this->mensajes);
             return $this->pdfMensual($request);
@@ -540,6 +537,7 @@ class ReporteController extends Controller
         return view('frontend.admin.especies.reportes.mensual', compact('distritos'));
     }
 
+    //genera el PDF del reporte mensual de uno o todos los distritos
     private function pdfMensual(Request $request)
     {
         $mes       = (int) $request->mes;
@@ -549,18 +547,18 @@ class ReporteController extends Controller
         $inicioMes = Carbon::create($anio, $mes, 1)->startOfMonth();
         $finMes    = $inicioMes->copy()->endOfMonth();
 
-        // Fechas como texto Y-m-d en todos lados: comparar un Carbon contra texto
-        // dejaba fuera los movimientos del ultimo dia del mes
+        //fechas como texto Y-m-d en todos lados: comparar un Carbon contra texto
+        //dejaba fuera los movimientos del ultimo dia del mes
         $ini = $inicioMes->toDateString();
         $fin = $finMes->toDateString();
 
-        // Todos, no solo activos: un tipo desactivado puede tener saldo o movimiento en el mes
+        //todos, no solo activos: un tipo desactivado puede tener saldo o movimiento en el mes
         $distrito  = in_array($request->distrito_id, [null, '', 'todos'], true) ? null : Distrito::findOrFail($request->distrito_id);
         $distritos = $distrito ? collect([$distrito]) : Distrito::orderBy('codigo')->get();
         $tipos     = TipoEspecie::orderBy('nombre')->get();
 
-        // Cargar todos los datos en bulk para eficiencia
-        // Solo traslados entrantes a distritos (bodega_distrito y distrito_distrito como destino)
+        //cargar todos los datos en bulk para eficiencia
+        //solo traslados entrantes a distritos (bodega_distrito y distrito_distrito como destino)
         $allDetalles = TrasladoDetalle::query()->toBase()->join('traslados', 'traslado_detalles.traslado_id', '=', 'traslados.id')
             ->join('lotes', 'traslado_detalles.lote_id', '=', 'lotes.id')
             ->where('traslados.fecha', '<=', $finMes)
@@ -569,7 +567,7 @@ class ReporteController extends Controller
                      'traslados.fecha', 'traslado_detalles.cantidad')
             ->get();
 
-        // Salidas desde distritos (devoluciones y traslados inter-distrito como origen)
+        //salidas desde distritos (devoluciones y traslados inter-distrito como origen)
         $allSalidas = TrasladoDetalle::query()->toBase()->join('traslados', 'traslado_detalles.traslado_id', '=', 'traslados.id')
             ->join('lotes', 'traslado_detalles.lote_id', '=', 'lotes.id')
             ->where('traslados.fecha', '<=', $finMes)
@@ -653,7 +651,7 @@ class ReporteController extends Controller
             ->stream('mensual-' . ($distrito ? $distrito->codigo . '-' : '') . "{$mes}-{$anio}.pdf");
     }
 
-    // ─── CONSOLIDADO ANUAL POR DISTRITO ─────────────────────────────────────
+    //CONSOLIDADO ANUAL POR DISTRITO
     public function anual(Request $request)
     {
         $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
@@ -671,6 +669,7 @@ class ReporteController extends Controller
         return view('frontend.admin.especies.reportes.anual', compact('distritos', 'tipos'));
     }
 
+    //genera el PDF del consolidado anual de un distrito y tipo
     private function pdfAnual(Request $request)
     {
         $distrito = Distrito::findOrFail($request->distrito_id);
@@ -698,13 +697,13 @@ class ReporteController extends Controller
             ->groupBy('mes', 'lotes.denominacion_id')->get()
             ->keyBy(fn($r) => $r->mes . '-' . $r->denominacion_id);
 
-        // Activas, mas las desactivadas que tuvieron movimiento en el año (si no, sus montos se pierden)
+        //activas, mas las desactivadas que tuvieron movimiento en el ano (si no, sus montos se pierden)
         $conMovimiento = $real->pluck('denominacion_id')->merge($nulas->pluck('denominacion_id'))->unique()->values();
         $denoms = Denominacion::where('tipo_especie_id', $tipo->id)
             ->where(fn($q) => $q->where('activo', true)->orWhereIn('id', $conMovimiento))
             ->orderBy('valor')->get();
 
-        // Matriz mes x denominacion, con totales por fila y por columna
+        //matriz mes x denominacion, con totales por fila y por columna
         $armar = function ($fuente, bool $conMonto) use ($denoms) {
             $filas = [];
             $totCol = [];
@@ -744,7 +743,7 @@ class ReporteController extends Controller
             ->stream("anual-{$distrito->codigo}-{$tipo->id}-{$anio}.pdf");
     }
 
-    // ─── CONTROL DE SALDOS ──────────────────────────────────────────────────
+    //CONTROL DE SALDOS
     public function saldos(Request $request)
     {
         $distritos = Distrito::where('activo', true)->orderBy('codigo')->get();
@@ -761,6 +760,7 @@ class ReporteController extends Controller
         return view('frontend.admin.especies.reportes.saldos', compact('distritos'));
     }
 
+    //genera el PDF del control de saldos del mes
     private function pdfSaldos(Request $request)
     {
         $distrito = Distrito::findOrFail($request->distrito_id);
@@ -773,11 +773,9 @@ class ReporteController extends Controller
             ->stream("saldos-{$distrito->codigo}-{$request->mes}-{$request->anio}.pdf");
     }
 
-    /**
-     * Control de Saldos (hoja "SALDOS" de Tesoreria): existencias del distrito al final del periodo, por tarifa,
-     * valuadas a precio de venta y a costo. Un tipo aparece si tuvo existencia o movimiento en el periodo.
-     * Cada monto se trunca al centavo (22.875 -> 22.87) y los totales suman esos montos.
-     */
+    //control de saldos (hoja "SALDOS" de tesoreria): existencias del distrito al final del periodo, por tarifa,
+    //valuadas a precio de venta y a costo. un tipo aparece si tuvo existencia o movimiento en el periodo.
+    //cada monto se trunca al centavo (22.875 -> 22.87) y los totales suman esos montos.
     public function datosSaldos(Distrito $distrito, Carbon $desde, Carbon $hasta): array
     {
         $existencias = fn(Carbon $fecha) => Inventario::distrito($distrito->id, null, $fecha)
@@ -810,13 +808,13 @@ class ReporteController extends Controller
                 $costo = $t->precio_costo ?? $t->denominacion->precio_costo;
                 $plantilla[] = ['orden' => $t->orden, 'nula' => false, 'den' => $t->denominacion_id,
                                 'descripcion' => $t->descripcion ?: $t->denominacion->etiqueta, 'costo' => $costo, 'precio' => $t->precio_venta];
-                // algunas hojas de saldos llevan la fila de nulas de vialidad, siempre en cero
+                //algunas hojas de saldos llevan la fila de nulas de vialidad, siempre en cero
                 if ($t->descripcion_nulas) {
                     $plantilla[] = ['orden' => $t->orden_nulas ?? $t->orden, 'nula' => true, 'den' => $t->denominacion_id,
                                     'descripcion' => $t->descripcion_nulas, 'costo' => $costo, 'precio' => $t->nulas_con_venta ? 0 : null];
                 }
             }
-            // Existencias de denominaciones sin tarifa del distrito: con los valores de la denominacion
+            //existencias de denominaciones sin tarifa del distrito: con los valores de la denominacion
             foreach ($denoms->where('tipo_especie_id', $tipo->id)->sortBy('valor') as $den) {
                 if ($tarifas->contains('denominacion_id', $den->id) || !($final[$den->id] ?? 0)) continue;
                 $plantilla[] = ['orden' => 900, 'nula' => false, 'den' => $den->id, 'descripcion' => $den->etiqueta,

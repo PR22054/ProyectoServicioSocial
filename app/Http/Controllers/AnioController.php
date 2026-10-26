@@ -9,7 +9,7 @@ use Illuminate\Validation\Rule;
 
 class AnioController extends Controller
 {
-    //retorna los nombres de archivos Excel disponibles en public/excel
+    //retorna los nombres de archivos excel disponibles en public/excel
     private function archivosExcel(): array
     {
         $archivos = glob(public_path('excel') . '/*.{xlsx,xls}', GLOB_BRACE);

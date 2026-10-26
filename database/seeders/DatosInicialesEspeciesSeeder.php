@@ -11,8 +11,6 @@ use App\Models\Realizacion;
 use App\Models\TipoEspecie;
 use App\Models\Traslado;
 use App\Models\TrasladoDetalle;
-use App\Models\Ubicacion;
-use App\Models\UbicacionRango;
 use App\Models\User;
 use App\Services\Inventario;
 use App\Services\Tarifas;
@@ -21,12 +19,10 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
-/**
- * Datos iniciales de especies municipales, de noviembre 2025 a junio 2026, tomados de los libros de Tesoreria
- * (database/data/especies_nov2025_jun2026.csv). Todo entra por la bodega: las existencias de cada distrito al
- * 31/10/2025 y cada compra al M.H. se registran como compra y se trasladan el mismo dia al distrito. Despues van
- * los traslados entre distritos, las cajas de Metapan, las realizaciones y las nulas. Solo corre con las tablas vacias.
- */
+//datos iniciales de especies municipales, de noviembre 2025 a junio 2026, tomados de los libros de tesoreria
+//(database/data/especies_nov2025_jun2026.csv). todo entra por la bodega: las existencias de cada distrito al
+//31/10/2025 y cada compra al M.H. se registran como compra y se trasladan el mismo dia al distrito. despues van
+//los traslados entre distritos, las realizaciones y las nulas. solo corre con las tablas vacias.
 class DatosInicialesEspeciesSeeder extends Seeder
 {
     public const ARCHIVO = 'data/especies_nov2025_jun2026.csv';
@@ -37,6 +33,7 @@ class DatosInicialesEspeciesSeeder extends Seeder
     private array $denominaciones = [];
     private array $precios = [];
 
+    //carga todos los movimientos del archivo en una transaccion y verifica las existencias al final
     public function run(): void
     {
         if (Compra::exists() || Traslado::exists() || Realizacion::exists() || Nula::exists()) {
@@ -70,16 +67,6 @@ class DatosInicialesEspeciesSeeder extends Seeder
                 }
             }
 
-            // Cajas de Metapan: las existencias iniciales ya traen su caja; despues, las reasignaciones del libro
-            $cajas = $filas->get('SALDO_INICIAL', collect())->where('ubicacion', '!=', '')->merge($filas->get('ASIGNACION_CAJA', collect()));
-            foreach ($cajas as $f) {
-                UbicacionRango::create([
-                    'ubicacion_id'    => Ubicacion::where('distrito_id', $this->distritos[$f['distrito']])->where('nombre', $f['ubicacion'])->firstOrFail()->id,
-                    'tipo_especie_id' => $this->denominacion($f)->tipo_especie_id, 'serie' => $f['serie'],
-                    'numero_inicio'   => $f['del'], 'numero_fin' => $f['al'], 'fecha' => $f['fecha'], 'usuario_id' => $this->usuario,
-                ]);
-            }
-
             foreach ($filas->get('REALIZACION', collect()) as $f) {
                 $distrito = $this->distritos[$f['distrito']];
                 $den      = $this->denominacion($f);
@@ -105,6 +92,7 @@ class DatosInicialesEspeciesSeeder extends Seeder
         $this->command?->info('Datos iniciales cargados: ' . $filas->map->count()->map(fn($n, $k) => "$k $n")->implode(', ') . '.');
     }
 
+    //lee el archivo CSV y valida que cada cantidad cuadre con su rango
     private function leer(): array
     {
         $fh = fopen(database_path(self::ARCHIVO), 'r') ?: throw new RuntimeException('No se encontró ' . self::ARCHIVO);
@@ -124,7 +112,7 @@ class DatosInicialesEspeciesSeeder extends Seeder
         return $filas;
     }
 
-    // Sin valor (tipos que se llevan en unidades) se usa la unica denominacion del tipo
+    //sin valor (tipos que se llevan en unidades) se usa la unica denominacion del tipo
     private function denominacion(array $f): Denominacion
     {
         return $this->denominaciones[$f['tipo_especie'] . '|' . $f['valor']] ??= (function () use ($f) {
@@ -138,6 +126,7 @@ class DatosInicialesEspeciesSeeder extends Seeder
         })();
     }
 
+    //precio de venta de la denominacion en el distrito, guardado para no repetir consultas
     private function precio(int $distritoId, Denominacion $den): ?float
     {
         $clave = "$distritoId|{$den->id}";
@@ -147,7 +136,7 @@ class DatosInicialesEspeciesSeeder extends Seeder
         return $this->precios[$clave];
     }
 
-    /** Registra una compra con un lote por fila y la traslada a cada distrito el mismo dia en que la recibe. */
+    //registra una compra con un lote por fila y la traslada a cada distrito el mismo dia en que la recibe.
     private function comprar(string $factura, Collection $filas, string $observaciones): void
     {
         if ($filas->isEmpty()) return;
@@ -173,10 +162,8 @@ class DatosInicialesEspeciesSeeder extends Seeder
         $compra->update(['monto_total' => $monto]);
     }
 
-    /**
-     * Parte el rango de la fila segun el ingreso al distrito que lo trajo (el mas reciente hasta esa fecha):
-     * [[traslado_detalle, inicio, fin], ...]. Falla si algun numero no llego al distrito o es de otra denominacion.
-     */
+    //parte el rango de la fila segun el ingreso al distrito que lo trajo (el mas reciente hasta esa fecha):
+    //[[traslado_detalle, inicio, fin], ...]. falla si algun numero no llego al distrito o es de otra denominacion.
     private function partes(array $f, int $distritoId): array
     {
         $den      = $this->denominacion($f);
@@ -208,7 +195,7 @@ class DatosInicialesEspeciesSeeder extends Seeder
         return $partes;
     }
 
-    // La historia de cada lote en la bodega y en cada distrito que lo tuvo debe ser valida
+    //la historia de cada lote en la bodega y en cada distrito que lo tuvo debe ser valida
     private function verificar(): void
     {
         $pares = Lote::pluck('id')->map(fn($id) => [null, $id])->all();

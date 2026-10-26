@@ -1,3 +1,4 @@
+{{--historial de realizaciones con filtros, total cobrado, edicion y eliminacion--}}
 @extends('frontend.layouts.admin')
 @section('page_title', 'Historial de Realizaciones')
 
@@ -10,8 +11,9 @@
         </div>
     @endif
 
-    {{-- filtros y botón --}}
+    {{--filtros y boton--}}
     <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+        {{--filtros por distrito y tipo--}}
         <form method="GET" action="{{ route('admin.especies.realizaciones.historial') }}" class="form-inline flex-wrap">
             <select name="distrito_id" class="form-control form-control-sm mr-2 mb-1">
                 <option value="">— Todos los distritos —</option>
@@ -45,6 +47,8 @@
             @endif
         </div>
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--tabla de realizaciones con sus acciones--}}
             <table class="table table-striped table-sm mb-0">
                 <thead>
                     <tr>
@@ -57,7 +61,6 @@
                         <th class="text-center">Rango realizado</th>
                         <th class="text-right">Cantidad</th>
                         <th class="text-right">Monto cobrado</th>
-                        <th>Contribuyente</th>
                         <th>Registrado por</th>
                         <th class="text-center" style="width:9%">Acciones</th>
                     </tr>
@@ -80,11 +83,10 @@
                         <td class="text-right font-weight-bold text-success">
                             ${{ number_format($r->monto_cobrado, 2) }}
                         </td>
-                        <td>{{ $r->nombre_contribuyente ?? '—' }}</td>
                         <td>{{ $r->usuario->usuario ?? '—' }}</td>
                         <td class="text-center">
                             <a href="{{ route('admin.especies.realizaciones.editar', $r) }}"
-                               class="btn btn-xs btn-warning">
+                               class="btn btn-xs btn-warning" data-toggle="tooltip" title="Editar la realización">
                                 <i class="fas fa-edit"></i>
                             </a>
                             <form method="POST"
@@ -94,7 +96,7 @@
                             </form>
                             <button type="button" class="btn btn-xs btn-danger"
                                     data-swal-delete
-                                    data-form="del-real-{{ $r->id }}"
+                                    data-toggle="tooltip" title="Eliminar la realización" data-form="del-real-{{ $r->id }}"
                                     data-msg="¿Eliminar la realización {{ number_format($r->numero_inicio) }}–{{ number_format($r->numero_fin) }} ({{ $r->tipoEspecie->nombre ?? '' }})?">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -102,11 +104,12 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="12" class="text-center text-muted py-3">Sin realizaciones registradas</td>
+                        <td colspan="11" class="text-center text-muted py-3">Sin realizaciones registradas</td>
                     </tr>
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
         @if($realizaciones->hasPages())
             <div class="card-footer">{{ $realizaciones->links() }}</div>

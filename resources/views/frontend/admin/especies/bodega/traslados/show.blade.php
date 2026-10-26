@@ -1,3 +1,4 @@
+{{--detalle de un traslado: datos generales y especies enviadas--}}
 @extends('frontend.layouts.admin')
 @section('page_title', 'Traslado #' . $traslado->id)
 
@@ -22,7 +23,7 @@
         </div>
     @endif
 
-    {{-- encabezado del traslado --}}
+    {{--encabezado del traslado--}}
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h3 class="card-title mb-0">
@@ -98,7 +99,7 @@
         </div>
     </div>
 
-    {{-- detalles --}}
+    {{--detalles--}}
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h3 class="card-title mb-0">Detalles ({{ $traslado->detalles->count() }})</h3>
@@ -107,6 +108,8 @@
             </a>
         </div>
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--tabla de detalles del traslado--}}
             <table class="table table-striped table-sm mb-0">
                 <thead>
                     <tr>
@@ -140,7 +143,7 @@
                             </form>
                             <button type="button" class="btn btn-xs btn-danger"
                                     data-swal-delete
-                                    data-form="del-det-{{ $detalle->id }}"
+                                    data-toggle="tooltip" title="Quitar este detalle del traslado" data-form="del-det-{{ $detalle->id }}"
                                     data-msg="¿Eliminar este detalle ({{ number_format($detalle->numero_inicio) }}–{{ number_format($detalle->numero_fin) }})?">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -151,6 +154,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 

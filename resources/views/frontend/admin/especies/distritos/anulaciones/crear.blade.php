@@ -1,14 +1,16 @@
+{{--formulario para registrar o editar una anulacion (nulas) de un distrito--}}
 @extends('frontend.layouts.admin')
-@section('page_title', 'Registrar Anulación')
+@php($nula = $nula ?? null)
+@section('page_title', $nula ? 'Editar Anulación' : 'Registrar Anulación')
 
 @section('page_content')
 
-{{-- FORMULARIO PARA ANULAR DOCUMENTOS DE UN DETALLE DE TRASLADO EN EL DISTRITO --}}
+{{--FORMULARIO PARA ANULAR DOCUMENTOS DE UN DETALLE DE TRASLADO EN EL DISTRITO (registrar o editar)--}}
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">Nueva anulación</h3>
+            <h3 class="card-title">{{ $nula ? 'Editar anulación' : 'Nueva anulación' }}</h3>
             <div class="card-tools">
-                <a href="{{ route('admin.especies.distritos.anulaciones.historial') }}" class="btn btn-sm btn-primary">
+                <a href="{{ $volver ?? route('admin.especies.distritos.anulaciones.historial') }}" class="btn btn-sm btn-primary">
                     Volver al historial
                 </a>
             </div>
@@ -23,8 +25,13 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('admin.especies.distritos.anulaciones.store') }}">
+            {{--datos de la anulacion: distrito, tipo, detalle de traslado, rango, fecha y motivo--}}
+            <form method="POST" action="{{ $nula ? route('admin.especies.distritos.anulaciones.update', $nula) : route('admin.especies.distritos.anulaciones.store') }}">
                 @csrf
+                @if($nula)
+                    @method('PATCH')
+                    <input type="hidden" name="volver" value="{{ old('volver', $volver) }}">
+                @endif
 
                 <div class="row">
                     <div class="col-md-6">
@@ -34,7 +41,7 @@
                                     class="form-control @error('distrito_id') is-invalid @enderror" required>
                                 <option value="">— Seleccione —</option>
                                 @foreach($distritos as $d)
-                                    <option value="{{ $d->id }}" {{ old('distrito_id') == $d->id ? 'selected' : '' }}>
+                                    <option value="{{ $d->id }}" {{ old('distrito_id', $nula?->distrito_id) == $d->id ? 'selected' : '' }}>
                                         {{ $d->nombre }} ({{ $d->codigo }})
                                     </option>
                                 @endforeach
@@ -48,7 +55,7 @@
                             <select id="tipo_especie_id" name="tipo_especie_id" class="form-control" disabled>
                                 <option value="">— Seleccione un distrito primero —</option>
                                 @foreach($tipos as $t)
-                                    <option value="{{ $t->id }}" {{ old('tipo_especie_id') == $t->id ? 'selected' : '' }}>
+                                    <option value="{{ $t->id }}" {{ old('tipo_especie_id', $nula?->trasladoDetalle->lote->tipo_especie_id) == $t->id ? 'selected' : '' }}>
                                         {{ $t->nombre }}
                                     </option>
                                 @endforeach
@@ -66,7 +73,7 @@
                     @error('traslado_detalle_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
 
-                {{-- info del detalle seleccionado --}}
+                {{--info del detalle seleccionado--}}
                 <div id="detalleInfo" class="alert alert-info py-2" style="display:none">
                     <strong>Rango del detalle:</strong>
                     <span id="detalleRango"></span>
@@ -85,7 +92,7 @@
                             <label>Número inicio <span class="text-danger">*</span></label>
                             <input type="number" name="numero_inicio" id="numero_inicio"
                                    class="form-control @error('numero_inicio') is-invalid @enderror"
-                                   value="{{ old('numero_inicio') }}" min="1" required>
+                                   value="{{ old('numero_inicio', $nula?->numero_inicio) }}" min="1" required>
                             @error('numero_inicio')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
@@ -94,7 +101,7 @@
                             <label>Número fin <span class="text-danger">*</span></label>
                             <input type="number" name="numero_fin" id="numero_fin"
                                    class="form-control @error('numero_fin') is-invalid @enderror"
-                                   value="{{ old('numero_fin') }}" min="1" required>
+                                   value="{{ old('numero_fin', $nula?->numero_fin) }}" min="1" required>
                             @error('numero_fin')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
@@ -112,7 +119,7 @@
                             <label>Fecha <span class="text-danger">*</span></label>
                             <input type="date" name="fecha"
                                    class="form-control @error('fecha') is-invalid @enderror"
-                                   value="{{ old('fecha', date('Y-m-d')) }}" max="{{ date('Y-m-d') }}" required>
+                                   value="{{ old('fecha', $nula?->fecha->format('Y-m-d') ?? date('Y-m-d')) }}" max="{{ date('Y-m-d') }}" required>
                             @error('fecha')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
@@ -121,7 +128,7 @@
                             <label>Motivo <small class="text-muted">(opcional)</small></label>
                             <input type="text" name="motivo"
                                    class="form-control" maxlength="255"
-                                   value="{{ old('motivo') }}"
+                                   value="{{ old('motivo', $nula?->motivo) }}"
                                    placeholder="Ej. Documentos dañados, extraviados...">
                         </div>
                     </div>
@@ -129,7 +136,7 @@
 
                 <div class="text-right">
                     <button type="submit" class="btn btn-danger">
-                        Registrar anulación
+                        {{ $nula ? 'Guardar cambios' : 'Registrar anulación' }}
                     </button>
                 </div>
             </form>
@@ -139,14 +146,18 @@
 @stop
 
 @push('js')
+{{--carga por AJAX los detalles con existencia y calcula la cantidad--}}
 <script>
 const ajaxUrl = '{{ route("admin.especies.ajax.detalles-disponibles") }}';
+//al editar, los numeros de esta anulacion cuentan como disponibles
+const nulaId  = {{ $nula?->id ?? 'null' }};
 
 const distritoEl = document.getElementById('distrito_id');
 const tipoEl     = document.getElementById('tipo_especie_id');
 const detalleEl  = document.getElementById('traslado_detalle_id');
 const infoEl     = document.getElementById('detalleInfo');
 
+//muestra el rango, lo disponible y lo ya anulado del detalle elegido
 function mostrarInfoDetalle() {
     if (!detalleEl.value) { infoEl.style.display = 'none'; return; }
     const sel        = detalleEl.options[detalleEl.selectedIndex];
@@ -172,6 +183,7 @@ function mostrarInfoDetalle() {
     infoEl.style.display = '';
 }
 
+//pide al servidor los detalles con existencia del distrito y tipo
 function cargarDetalles(restoreDetalleId) {
     const distId = distritoEl.value;
     const tipoId = tipoEl.value;
@@ -184,7 +196,7 @@ function cargarDetalles(restoreDetalleId) {
         return;
     }
 
-    fetch(ajaxUrl + '?distrito_id=' + distId + '&tipo_especie_id=' + tipoId)
+    fetch(ajaxUrl + '?distrito_id=' + distId + '&tipo_especie_id=' + tipoId + (nulaId ? '&nula_id=' + nulaId : ''))
         .then(r => r.json())
         .then(items => {
             if (items.length === 0) {
@@ -221,6 +233,7 @@ tipoEl.addEventListener('change', () => cargarDetalles(null));
 
 detalleEl.addEventListener('change', mostrarInfoDetalle);
 
+//calcula la cantidad del rango escrito
 function calcCantidad() {
     const ini  = parseInt(document.getElementById('numero_inicio').value);
     const fin  = parseInt(document.getElementById('numero_fin').value);
@@ -231,15 +244,15 @@ function calcCantidad() {
 document.getElementById('numero_inicio').addEventListener('input', calcCantidad);
 document.getElementById('numero_fin').addEventListener('input', calcCantidad);
 
-// Estado inicial
+//estado inicial
 tipoEl.disabled = !distritoEl.value;
 
-// Auto-restaurar estado tras validación fallida (old())
+//auto-restaurar estado tras validacion fallida (old())
 document.addEventListener('DOMContentLoaded', function () {
     if (distritoEl.value) {
         tipoEl.disabled = false;
         if (tipoEl.value) {
-            cargarDetalles({{ old('traslado_detalle_id') ?? 'null' }});
+            cargarDetalles({{ old('traslado_detalle_id', $nula?->traslado_detalle_id) ?? 'null' }});
         }
     }
     calcCantidad();

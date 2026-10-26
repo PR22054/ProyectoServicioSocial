@@ -31,6 +31,7 @@
 @stop
 
 @section('adminlte_js')
+{{--cierre de sesion, ayuda de los botones y confirmacion de eliminar--}}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         //intercepta el enlace de cerrar sesion y pide confirmacion con SweetAlert
@@ -55,6 +56,9 @@
                 });
             });
         }
+
+        //texto de ayuda al pasar el cursor por los botones de solo icono
+        $('[data-toggle="tooltip"]').tooltip({ trigger: 'hover' });
 
         //manejador generico para botones de eliminacion marcados con data-swal-delete
         document.querySelectorAll('[data-swal-delete]').forEach(function (btn) {

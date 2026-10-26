@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'title' => 'Sistema de Renta',
+    'title' => 'Sistema de Especies Municipales',
     'title_prefix' => '',
     'title_postfix' => '',
 
@@ -63,7 +63,7 @@ return [
     |
     */
 
-    'logo' => '<b>Sistema de Renta</b>',
+    'logo' => '<b style="display:inline-block; vertical-align:middle; white-space:normal; text-align:center; font-size:.9rem; line-height:1.1;">Sistema de Especies<br>Municipales</b>',
     'logo_img' => 'images/logosantaananorte_blaco.png',
     'logo_img_class' => 'brand-image',
     'logo_img_xl' => null,
@@ -154,7 +154,7 @@ return [
 
     'layout_topnav' => null,
     'layout_boxed' => null,
-    'layout_fixed_sidebar' => null,
+    'layout_fixed_sidebar' => true,   //el menu lateral queda fijo al bajar en la pagina
     'layout_fixed_navbar' => null,
     'layout_fixed_footer' => null,
     'layout_dark_mode' => null,
@@ -191,7 +191,7 @@ return [
     */
 
     'classes_body' => '',
-    'classes_brand' => '',
+    'classes_brand' => 'text-center',   //centra el nombre del sistema en el menu lateral
     'classes_brand_text' => '',
     'classes_content_wrapper' => '',
     'classes_content_header' => '',

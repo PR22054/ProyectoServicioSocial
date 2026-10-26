@@ -1,6 +1,6 @@
-{{-- PIE DE LOS REPORTES: lugar y fecha opcional ($pie), espacio y linea para la firma de la tesorera
+{{--PIE DE LOS REPORTES: lugar y fecha opcional ($pie), espacio y linea para la firma de la tesorera
      y la fecha de generacion (se omite con $sinFechaGeneracion).
-     Es una sola tabla que no se parte: si no cabe al final de la pagina pasa completa a la siguiente --}}
+     es una sola tabla que no se parte: si no cabe al final de la pagina pasa completa a la siguiente--}}
 @php($firmante = config('especies.firmas.tesorera'))
 <table style="width:100%; margin-top:10px; page-break-inside:avoid;">
   @isset($pie)

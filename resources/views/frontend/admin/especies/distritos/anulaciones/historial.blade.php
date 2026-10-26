@@ -1,3 +1,4 @@
+{{--historial de anulaciones con filtro por distrito, edicion y eliminacion--}}
 @extends('frontend.layouts.admin')
 @section('page_title', 'Historial de Anulaciones')
 
@@ -10,9 +11,10 @@
         </div>
     @endif
 
-    {{-- filtro y botón --}}
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <form method="GET" action="{{ route('admin.especies.distritos.anulaciones.historial') }}" class="form-inline">
+    {{--filtro y boton--}}
+    <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+        {{--filtro por distrito--}}
+        <form method="GET" action="{{ route('admin.especies.distritos.anulaciones.historial') }}" class="form-inline flex-wrap mb-2">
             <label class="mr-2">Filtrar por distrito:</label>
             <select name="distrito_id" class="form-control form-control-sm mr-2">
                 <option value="">— Todos —</option>
@@ -37,6 +39,8 @@
             <h3 class="card-title">Anulaciones registradas ({{ $nulas->total() }})</h3>
         </div>
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--tabla de anulaciones con sus acciones--}}
             <table class="table table-striped table-sm mb-0">
                 <thead>
                     <tr>
@@ -50,7 +54,7 @@
                         <th class="text-right">Cantidad</th>
                         <th>Motivo</th>
                         <th>Registrado por</th>
-                        <th class="text-center" style="width:8%">Acción</th>
+                        <th class="text-center" style="width:9%">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -70,7 +74,10 @@
                         <td class="text-right">{{ number_format($nula->cantidad) }}</td>
                         <td>{{ $nula->motivo ?? '—' }}</td>
                         <td>{{ $nula->usuario->usuario ?? '—' }}</td>
-                        <td class="text-center">
+                        <td class="text-center text-nowrap">
+                            <a href="{{ route('admin.especies.distritos.anulaciones.editar', $nula) }}" class="btn btn-xs btn-warning" data-toggle="tooltip" title="Editar la anulación">
+                                <i class="fas fa-edit"></i>
+                            </a>
                             <form method="POST"
                                   action="{{ route('admin.especies.distritos.anulaciones.destroy', $nula) }}"
                                   id="del-nula-{{ $nula->id }}" style="display:inline">
@@ -78,7 +85,7 @@
                             </form>
                             <button type="button" class="btn btn-xs btn-danger"
                                     data-swal-delete
-                                    data-form="del-nula-{{ $nula->id }}"
+                                    data-toggle="tooltip" title="Eliminar la anulación" data-form="del-nula-{{ $nula->id }}"
                                     data-msg="¿Eliminar la anulación {{ number_format($nula->numero_inicio) }}–{{ number_format($nula->numero_fin) }}?">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -91,6 +98,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
         @if($nulas->hasPages())
             <div class="card-footer">{{ $nulas->links() }}</div>

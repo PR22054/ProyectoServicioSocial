@@ -5,18 +5,20 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+//agrega la serie a las realizaciones y normaliza las series de los lotes
 return new class extends Migration
 {
+    //amplia la serie de los lotes, la agrega a las realizaciones y la llena con la del lote recibido
     public function up(): void
     {
-        // La validacion siempre acepto 10 caracteres; la columna solo tenia 5
+        //la validacion siempre acepto 10 caracteres; la columna solo tenia 5
         Schema::table('lotes', function (Blueprint $table) {
             $table->string('serie', 10)->nullable()->change();
         });
 
         DB::table('lotes')->update(['serie' => DB::raw("NULLIF(UPPER(TRIM(serie)), '')")]);
 
-        // Al normalizar, dos lotes del mismo tipo y serie no pueden quedar con numeros repetidos
+        //al normalizar, dos lotes del mismo tipo y serie no pueden quedar con numeros repetidos
         $choques = DB::select("
             SELECT la.id a, lb.id b FROM lote_rangos ra
             JOIN lotes la ON la.id = ra.lote_id
@@ -34,7 +36,7 @@ return new class extends Migration
             $table->index(['tipo_especie_id', 'serie', 'numero_inicio']);
         });
 
-        // La serie de cada realizacion existente es la del lote que su distrito recibio con ese rango
+        //la serie de cada realizacion existente es la del lote que su distrito recibio con ese rango
         foreach (DB::table('realizaciones')->get() as $r) {
             $series = DB::table('traslado_detalles as td')
                 ->join('traslados as t', 't.id', '=', 'td.traslado_id')
@@ -55,6 +57,7 @@ return new class extends Migration
         }
     }
 
+    //quita la serie de las realizaciones
     public function down(): void
     {
         Schema::table('realizaciones', function (Blueprint $table) {

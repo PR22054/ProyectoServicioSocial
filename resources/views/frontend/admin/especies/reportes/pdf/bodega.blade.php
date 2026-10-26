@@ -1,4 +1,4 @@
-{{-- PDF: EXISTENCIAS EN BODEGA - lotes con stock disponible, valuados a precio de venta --}}
+{{--PDF: EXISTENCIAS EN BODEGA - lotes con stock disponible, valuados a precio de venta--}}
 @php
   $tituloReporte      = 'Especies en Bodega';
   $encabezadoCaja     = 'ESPECIES EN BODEGA';

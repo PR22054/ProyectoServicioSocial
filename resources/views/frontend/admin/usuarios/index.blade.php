@@ -27,6 +27,8 @@
             </a>
         </div>
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--tabla de usuarios con sus acciones--}}
             <table class="table table-striped mb-0">
                 <thead class="thead-dark">
                     <tr>
@@ -48,7 +50,7 @@
                         </td>
                         <td>
                             <a href="{{ route('admin.usuarios.edit', $user) }}"
-                               class="btn btn-sm btn-warning">
+                               class="btn btn-sm btn-warning" data-toggle="tooltip" title="Editar usuario">
                                 <i class="fas fa-edit"></i>
                             </a>
                             <form id="del-user-{{ $user->id }}" action="{{ route('admin.usuarios.destroy', $user) }}"
@@ -59,7 +61,7 @@
                                 @if(auth()->id() === $user->id)
                                     <button type="button" class="btn btn-sm btn-danger"
                                         data-swal-delete
-                                        data-form="del-user-{{ $user->id }}"
+                                        data-toggle="tooltip" title="Eliminar usuario" data-form="del-user-{{ $user->id }}"
                                         data-msg="¿Eliminar tu propio usuario? Esto cerrará tu sesión."
                                         data-icon="error">
                                         <i class="fas fa-trash"></i>
@@ -67,7 +69,7 @@
                                 @else
                                     <button type="button" class="btn btn-sm btn-danger"
                                         data-swal-delete
-                                        data-form="del-user-{{ $user->id }}"
+                                        data-toggle="tooltip" title="Eliminar usuario" data-form="del-user-{{ $user->id }}"
                                         data-msg="¿Eliminar al usuario {{ $user->usuario }}?"
                                         data-icon="warning">
                                         <i class="fas fa-trash"></i>
@@ -83,6 +85,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 

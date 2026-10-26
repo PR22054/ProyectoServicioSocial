@@ -11,10 +11,11 @@ class Realizacion extends Model
     protected $fillable = [
         'tipo_especie_id', 'denominacion_id', 'serie', 'distrito_id',
         'numero_inicio', 'numero_fin', 'cantidad',
-        'fecha', 'nombre_contribuyente', 'monto_cobrado', 'usuario_id',
+        'fecha', 'monto_cobrado', 'usuario_id',
     ];
     protected $casts = ['fecha' => 'date'];
 
+    //relaciones: tipo, denominacion, distrito y usuario que la registro
     public function tipoEspecie()  { return $this->belongsTo(TipoEspecie::class); }
     public function denominacion() { return $this->belongsTo(Denominacion::class); }
     public function distrito()     { return $this->belongsTo(Distrito::class); }

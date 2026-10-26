@@ -8,34 +8,30 @@ use App\Models\Nula;
 use App\Models\Realizacion;
 use App\Models\TipoEspecie;
 use App\Models\TrasladoDetalle;
-use App\Models\UbicacionRango;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
-/**
- * Existencias de especies calculadas con aritmetica de intervalos.
- * Un documento se identifica por (tipo, serie, numero): la misma numeracion se
- * repite entre series, asi que toda comparacion de rangos va acotada por serie.
- */
+//existencias de especies calculadas con aritmetica de intervalos.
+//un documento se identifica por (tipo, serie, numero): la misma numeracion se
+//repite entre series, asi que toda comparacion de rangos va acotada por serie.
 class Inventario
 {
+    //serie normalizada: en mayusculas y null si viene vacia
     public static function serie(?string $serie): ?string
     {
         $serie = strtoupper(trim((string) $serie));
         return $serie === '' ? null : $serie;
     }
 
-    // Serializa los movimientos de esos tipos; va al inicio de DB::transaction
+    //serializa los movimientos de esos tipos; va al inicio de DB::transaction
     public static function bloquear(int ...$tipoIds): void
     {
         TipoEspecie::whereKey(array_unique($tipoIds))->orderBy('id')->lockForUpdate()->pluck('id');
     }
 
-    /**
-     * Posiciones cuyo conteo es >= $minimo, sumando 1 por cada rango de $mas y restando 1
-     * por cada rango de $menos. Devuelve intervalos disjuntos, ordenados y fusionados.
-     */
+    //posiciones cuyo conteo es >= $minimo, sumando 1 por cada rango de $mas y restando 1
+    //por cada rango de $menos. devuelve intervalos disjuntos, ordenados y fusionados.
     public static function neto(array $mas, array $menos = [], int $minimo = 1): array
     {
         $delta = [];
@@ -64,21 +60,25 @@ class Inventario
         return $res;
     }
 
+    //numeros que estan en los dos grupos de intervalos
     public static function interseccion(array $a, array $b): array
     {
         return self::neto(array_merge(self::neto($a), self::neto($b)), [], 2);
     }
 
+    //indica si el rango completo esta dentro de los intervalos
     public static function contiene(array $intervalos, int $inicio, int $fin): bool
     {
         return self::neto([[$inicio, $fin]], $intervalos) === [];
     }
 
+    //cantidad de documentos de los intervalos
     public static function total(array $intervalos): int
     {
         return array_sum(array_map(fn($r) => $r[1] - $r[0] + 1, $intervalos));
     }
 
+    //intervalos como texto para los mensajes (ej. 1-50, 60)
     public static function texto(array $intervalos): string
     {
         return implode(', ', array_map(fn($r) => $r[0] === $r[1]
@@ -86,15 +86,14 @@ class Inventario
             : number_format($r[0]) . '–' . number_format($r[1]), $intervalos));
     }
 
+    //convierte filas con numero_inicio y numero_fin en intervalos
     private static function rangos($filas): array
     {
         return collect($filas)->map(fn($r) => [(int) $r->numero_inicio, (int) $r->numero_fin])->values()->all();
     }
 
-    /**
-     * Existencia de un distrito por lote a una fecha: lo recibido menos salidas, nulas y realizaciones.
-     * Incluye todo lote que el distrito haya recibido, aunque hoy tenga cero.
-     */
+    //existencia de un distrito por lote a una fecha: lo recibido menos salidas, nulas y realizaciones.
+    //incluye todo lote que el distrito haya recibido, aunque hoy tenga cero.
     public static function distrito(int $distritoId, ?int $tipoId = null, ?Carbon $hasta = null, ?int $sinRealizacion = null): Collection
     {
         $fecha = $hasta?->toDateString();
@@ -135,7 +134,7 @@ class Inventario
                 $recibido = self::rangos($entradas->get($lote->id));
                 $salido   = self::rangos($salidas->get($lote->id, []));
                 $anulado  = self::rangos($nulas->get($lote->id, []));
-                // Las realizaciones solo guardan tipo+serie: la parte de este lote es la que cae en lo recibido
+                //las realizaciones solo guardan tipo+serie: la parte de este lote es la que cae en lo recibido
                 $realizado = self::interseccion(
                     self::rangos($reales->get($lote->tipo_especie_id . '|' . $lote->serie, [])), $recibido);
 
@@ -160,7 +159,7 @@ class Inventario
             ->keyBy(fn($r) => $r['lote']->id);
     }
 
-    /** Existencia de la bodega por lote a una fecha: lo comprado mas devoluciones menos envios. */
+    //existencia de la bodega por lote a una fecha: lo comprado mas devoluciones menos envios.
     public static function bodega(?int $tipoId = null, ?Carbon $hasta = null): Collection
     {
         $fecha = $hasta?->toDateString();
@@ -203,86 +202,25 @@ class Inventario
             ->keyBy(fn($r) => $r['lote']->id);
     }
 
-    /**
-     * Cajas vigentes a una fecha en un distrito y tipo: por serie, segmentos [inicio, fin, nombre, orden].
-     * Cuando dos asignaciones tocan el mismo numero gana la mas reciente.
-     */
-    public static function cajas(int $distritoId, int $tipoId, Carbon $hasta): array
-    {
-        $asignaciones = UbicacionRango::query()->toBase()
-            ->join('ubicaciones', 'ubicaciones.id', '=', 'ubicacion_rangos.ubicacion_id')
-            ->where('ubicaciones.distrito_id', $distritoId)
-            ->where('ubicacion_rangos.tipo_especie_id', $tipoId)
-            ->where('ubicacion_rangos.fecha', '<=', $hasta->toDateString())
-            ->orderBy('ubicacion_rangos.fecha')->orderBy('ubicacion_rangos.id')
-            ->get(['ubicacion_rangos.serie', 'ubicacion_rangos.numero_inicio', 'ubicacion_rangos.numero_fin',
-                   'ubicaciones.nombre', 'ubicaciones.orden']);
-
-        $mapa = [];
-        foreach ($asignaciones as $a) {
-            [$i, $f] = [(int) $a->numero_inicio, (int) $a->numero_fin];
-            $resto = [];
-            foreach ($mapa[(string) $a->serie] ?? [] as $s) {
-                if ($s[1] < $i || $s[0] > $f) { $resto[] = $s; continue; }
-                if ($s[0] < $i) $resto[] = [$s[0], $i - 1, $s[2], $s[3]];
-                if ($s[1] > $f) $resto[] = [$f + 1, $s[1], $s[2], $s[3]];
-            }
-            $resto[] = [$i, $f, $a->nombre, (int) $a->orden];
-            $mapa[(string) $a->serie] = $resto;
-        }
-        return $mapa;
-    }
-
-    public static function cajaDe(array $cajasSerie, int $numero): ?string
-    {
-        foreach ($cajasSerie as [$i, $f, $nombre]) {
-            if ($i <= $numero && $numero <= $f) return $nombre;
-        }
-        return null;
-    }
-
-    /** Parte [inicio, fin] segun la caja de cada tramo: [[inicio, fin, caja|null, orden], ...] */
-    private static function partirPorCaja(array $cajasSerie, int $inicio, int $fin): array
-    {
-        $segmentos = array_values(array_filter($cajasSerie, fn($s) => $s[1] >= $inicio && $s[0] <= $fin));
-        usort($segmentos, fn($a, $b) => $a[0] <=> $b[0]);
-
-        $trozos = [];
-        $cursor = $inicio;
-        foreach ($segmentos as [$i, $f, $caja, $orden]) {
-            $a = max($i, $inicio);
-            if ($a > $cursor) $trozos[] = [$cursor, $a - 1, null, 0];
-            $trozos[] = [$a, min($f, $fin), $caja, $orden];
-            $cursor = min($f, $fin) + 1;
-        }
-        if ($cursor <= $fin) $trozos[] = [$cursor, $fin, null, 0];
-        return $trozos;
-    }
-
-    /**
-     * Filas de saldo como las lista el libro: un rango vivo por fila, partido y rotulado por caja,
-     * ordenado por caja, valor (si el distrito lo lleva asi) y orden de ingreso del lote.
-     */
+    //filas de saldo como las lista el libro: un rango vivo por fila, ordenado por valor (si el distrito
+    //lo lleva asi) y orden de ingreso del lote.
     public static function filasSaldo(int $distritoId, int $tipoId, Carbon $hasta, ?int $denominacionId = null): array
     {
         $porValor = (bool) (Distrito::whereKey($distritoId)->value('saldo_por_valor') ?? true);
-        $cajas    = self::cajas($distritoId, $tipoId, $hasta);
         $filas = [];
         foreach (self::distrito($distritoId, $tipoId, $hasta) as $r) {
             if ($r['cantidad'] <= 0 || ($denominacionId && $r['lote']->denominacion_id != $denominacionId)) continue;
             foreach ($r['intervalos'] as [$i, $f]) {
-                foreach (self::partirPorCaja($cajas[(string) $r['lote']->serie] ?? [], $i, $f) as [$a, $b, $caja, $orden]) {
-                    $filas[] = ['caja' => $caja, 'orden_caja' => $orden, 'lote' => $r['lote'], 'inicio' => $a, 'fin' => $b,
-                                'cantidad' => $b - $a + 1, 'valor' => $r['valor'], 'monto' => ($b - $a + 1) * $r['valor']];
-                }
+                $filas[] = ['lote' => $r['lote'], 'inicio' => $i, 'fin' => $f,
+                            'cantidad' => $f - $i + 1, 'valor' => $r['valor'], 'monto' => ($f - $i + 1) * $r['valor']];
             }
         }
-        usort($filas, fn($x, $y) => [$x['orden_caja'], $porValor ? $x['valor'] : 0, $x['lote']->id, $x['inicio']]
-                                <=> [$y['orden_caja'], $porValor ? $y['valor'] : 0, $y['lote']->id, $y['inicio']]);
+        usort($filas, fn($x, $y) => [$porValor ? $x['valor'] : 0, $x['lote']->id, $x['inicio']]
+                                <=> [$porValor ? $y['valor'] : 0, $y['lote']->id, $y['inicio']]);
         return $filas;
     }
 
-    /** Lotes de un tipo y serie que contienen alguna parte del rango. */
+    //lotes de un tipo y serie que contienen alguna parte del rango.
     public static function lotesDelRango(int $tipoId, ?string $serie, int $inicio, int $fin): Collection
     {
         return Lote::with('rangos', 'denominacion')
@@ -292,11 +230,9 @@ class Inventario
             ->get();
     }
 
-    /**
-     * Recorre en orden cronologico los movimientos de un lote en un poseedor (un distrito, o la
-     * bodega si es null) y devuelve la primera inconsistencia: sacar documentos que no estaban
-     * o recibir documentos que ya estaban. Null si la historia es valida.
-     */
+    //recorre en orden cronologico los movimientos de un lote en un poseedor (un distrito, o la
+    //bodega si es null) y devuelve la primera inconsistencia: sacar documentos que no estaban
+    //o recibir documentos que ya estaban. null si la historia es valida.
     public static function verificar(?int $distritoId, int $loteId): ?string
     {
         $lote = Lote::with('rangos', 'compra', 'tipoEspecie')->find($loteId);
@@ -343,7 +279,7 @@ class Inventario
              . ', factura ' . $lote->compra->numero_factura;
         $numeros = fn(array $r) => (self::total($r) === 1 ? 'el número ' : 'los números ') . self::texto($r);
 
-        // Las fechas no tienen hora: cada dia se evalua como un bloque, sin suponer orden interno
+        //las fechas no tienen hora: cada dia se evalua como un bloque, sin suponer orden interno
         $tiene = [];
         foreach (collect($eventos)->sortBy('fecha')->groupBy('fecha') as $fecha => $delDia) {
             $mas   = array_merge($tiene, ...$delDia->where('signo', 1)->pluck('rango')->all());
@@ -366,10 +302,8 @@ class Inventario
         return null;
     }
 
-    /**
-     * Verifica los pares [distrito|null, lote_id] y aborta con el primer error.
-     * Dentro de DB::transaction la excepcion deshace el cambio recien escrito.
-     */
+    //verifica los pares [distrito|null, lote_id] y aborta con el primer error.
+    //dentro de DB::transaction la excepcion deshace el cambio recien escrito.
     public static function asegurar(array $pares, string $campo = 'numero_inicio'): void
     {
         $vistos = [];

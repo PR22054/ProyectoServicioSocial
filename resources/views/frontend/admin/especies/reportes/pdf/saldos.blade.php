@@ -1,5 +1,5 @@
-{{-- PDF: CONTROL DE SALDOS - existencias del distrito al final del mes, con la plantilla del distrito.
-     PRECIO DE VTA. = existencia x precio de venta (en blanco si no se vende); EXISTENCIAS = existencia x costo --}}
+{{--PDF: CONTROL DE SALDOS - existencias del distrito al final del mes, con la plantilla del distrito.
+     PRECIO DE VTA. = existencia x precio de venta (en blanco si no se vende); EXISTENCIAS = existencia x costo--}}
 @php
   $tituloReporte      = 'Control de Saldos';
   $encabezadoCaja     = 'CONTROL DE SALDOS';
@@ -11,13 +11,13 @@
   $lineasTitulo = ['ALCALDIA MUNICIPAL DE SANTA ANA NORTE', $distrito->nombre_reporte,
                    'ESPECIES MUNICIPALES SALDOS A ' . mb_strtoupper($nombreMes) . ' DE ' . $hasta->year, 'CONTROL DE SALDOS'];
 
-  // montos a 2 decimales (ya vienen truncados al centavo); el cero se muestra "$ -" como en Tesoreria
+  //montos a 2 decimales (ya vienen truncados al centavo); el cero se muestra "$ -" como en tesoreria
   $dinero = function ($v) {
       if ($v === null) return '';
       if (abs($v) < 0.000001) return '$ -';
       return ($v < 0 ? '-$' : '$') . number_format(abs($v), 2);
   };
-  // costo con al menos 2 decimales y hasta 4 (0.30, 0.075, 0.0105)
+  //costo con al menos 2 decimales y hasta 4 (0.30, 0.075, 0.0105)
   $costo = function ($v) {
       if ($v === null) return '';
       [$entero, $dec] = explode('.', rtrim(number_format($v, 4), '0')) + [1 => ''];

@@ -1,4 +1,4 @@
-{{-- PDF: HISTORIAL DE TRASLADOS - ENTRADAS Y SALIDAS DEL DISTRITO EN EL PERIODO --}}
+{{--PDF: HISTORIAL DE TRASLADOS - ENTRADAS Y SALIDAS DEL DISTRITO EN EL PERIODO--}}
 @php
   $tituloReporte = 'Historial de Traslados';
   $esEntrada = fn($d) => $d->traslado->distrito_id == $distrito->id;

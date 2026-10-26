@@ -1,3 +1,4 @@
+{{--historial de traslados de bodega: lista, edicion en ventana y eliminacion--}}
 @extends('frontend.layouts.admin')
 @section('page_title', 'Historial de Traslados')
 
@@ -16,7 +17,7 @@
         </div>
     @endif
 
-    {{-- LISTADO DE TRASLADOS: BODEGA→DISTRITO, DEVOLUCION Y ENTRE DISTRITOS --}}
+    {{--LISTADO DE TRASLADOS: BODEGA A DISTRITO, DEVOLUCION Y ENTRE DISTRITOS--}}
     <div class="mb-3">
         <a href="{{ route('admin.especies.bodega.traslado.crear') }}" class="btn btn-primary">
             <i class="fas fa-plus mr-1"></i> Registrar traslado
@@ -26,6 +27,8 @@
     <div class="card">
         <div class="card-header"><h3 class="card-title">Traslados registrados ({{ $traslados->total() }})</h3></div>
         <div class="card-body p-0">
+            <div class="table-responsive">
+            {{--tabla de traslados con sus acciones--}}
             <table class="table table-striped table-sm mb-0">
                 <thead>
                     <tr>
@@ -37,7 +40,7 @@
                         <th>Registrado por</th>
                         <th class="text-center">Detalles</th>
                         <th class="text-right">Total</th>
-                        <th class="text-center" style="width:12%">Acciones</th>
+                        <th class="text-center" style="width:20%">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -73,13 +76,22 @@
                             <span class="badge badge-info">{{ $traslado->detalles_count }}</span>
                         </td>
                         <td class="text-right">{{ number_format($traslado->detalles_sum_cantidad) }}</td>
-                        <td class="text-center">
-                            <a href="{{ route('admin.especies.bodega.traslado.show', $traslado) }}"
-                               class="btn btn-xs btn-info">
-                                <i class="fas fa-eye"></i>
+                        <td class="text-center text-nowrap">
+                            {{--sin detalles el traslado no mueve nada: el boton invita a agregarlos--}}
+                            @if($traslado->detalles_count)
+                            <a href="{{ route('admin.especies.bodega.traslado.show', $traslado) }}" class="btn btn-xs btn-info"
+                               data-toggle="tooltip" title="Ver lo que se envió en este traslado y agregar más detalles">
+                                <i class="fas fa-eye mr-1"></i>Ver / agregar
                             </a>
-                            {{-- Js::from escapa saltos de linea y comillas; addslashes rompia el boton con observaciones de varias lineas --}}
+                            @else
+                            <a href="{{ route('admin.especies.bodega.traslado.show', $traslado) }}" class="btn btn-xs btn-success"
+                               data-toggle="tooltip" title="Este traslado todavía no tiene detalles: agregue las especies que se envían">
+                                <i class="fas fa-plus mr-1"></i>Agregar detalles
+                            </a>
+                            @endif
+                            {{--Js::from escapa saltos de linea y comillas; addslashes rompia el boton con observaciones de varias lineas--}}
                             <button type="button" class="btn btn-xs btn-warning"
+                                    data-toggle="tooltip" title="Editar fecha, distritos u observaciones del traslado"
                                     onclick="abrirEditTraslado({{ $traslado->id }}, {{ Js::from($traslado->tipo) }},
                                         {{ $traslado->distrito_id ?? 'null' }}, {{ $traslado->origen_distrito_id ?? 'null' }},
                                         {{ Js::from($traslado->fecha->format('Y-m-d')) }}, {{ Js::from($traslado->observaciones ?? '') }})">
@@ -91,6 +103,7 @@
                                 @csrf @method('DELETE')
                             </form>
                             <button type="button" class="btn btn-xs btn-danger"
+                                    data-toggle="tooltip" title="Eliminar el traslado"
                                     data-swal-delete
                                     data-form="del-traslado-{{ $traslado->id }}"
                                     data-msg="¿Eliminar el traslado #{{ $traslado->id }}? Se eliminarán también sus detalles.">
@@ -103,19 +116,21 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
         @if($traslados->hasPages())
             <div class="card-footer">{{ $traslados->links() }}</div>
         @endif
     </div>
 
-    {{-- modal de edición --}}
+    {{--modal de edicion--}}
     <div class="modal fade" id="modalEditTraslado" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
+                {{--ventana para editar los datos generales del traslado--}}
                 <form method="POST" id="formEditTraslado">
                     @csrf @method('PATCH')
-                    {{-- permiten reabrir el modal sobre el mismo traslado si la validacion falla --}}
+                    {{--permiten reabrir el modal sobre el mismo traslado si la validacion falla--}}
                     <input type="hidden" name="_editar_id" id="edit_id">
                     <input type="hidden" name="_editar_tipo" id="edit_tipo">
                     <div class="modal-header">
@@ -169,7 +184,9 @@
 @stop
 
 @push('js')
+{{--llena la ventana de edicion con los datos del traslado--}}
 <script>
+//abre la ventana de edicion con los datos del traslado elegido
 function abrirEditTraslado(id, tipo, distritoId, origenId, fecha, observaciones) {
     const campoOrigen  = document.getElementById('edit_campo_origen');
     const campoDestino = document.getElementById('edit_campo_destino');
@@ -189,7 +206,7 @@ function abrirEditTraslado(id, tipo, distritoId, origenId, fecha, observaciones)
 }
 
 @if($errors->any() && old('_editar_id'))
-// La edicion fallo: reabrir el modal con lo que se escribio para que se vea el error
+//la edicion fallo: reabrir el modal con lo que se escribio para que se vea el error
 document.addEventListener('DOMContentLoaded', () => abrirEditTraslado(
     {{ Js::from(old('_editar_id')) }}, {{ Js::from(old('_editar_tipo')) }},
     {{ Js::from(old('distrito_id')) }}, {{ Js::from(old('origen_distrito_id')) }},

@@ -401,6 +401,14 @@ return [
             ],
         ],
         ['header' => 'SESIÓN', 'can' => 'auth-access'],
+        //abre el manual de usuario en PDF en una pestana nueva
+        [
+            'text'   => 'Manual de Usuario',
+            'url'    => 'manual',
+            'icon'   => 'fas fa-fw fa-book-open',
+            'target' => '_blank',
+            'can'    => 'auth-access',
+        ],
         [
             'text' => 'Cerrar Sesión',
             'url'  => 'logout',

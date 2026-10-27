@@ -32,6 +32,12 @@ Route::get('logout', [LoginController::class, 'logout'])->name('logout')->middle
 //ruta home nombrada para que el middleware guest sepa a donde redirigir usuarios autenticados
 Route::get('/home', [DashboardController::class, 'redirect'])->middleware('auth')->name('home');
 
+//manual de usuario en PDF (resources/manual) para cualquier usuario con sesion; se abre en el navegador
+Route::get('manual', fn() => response()->file(resource_path('manual/manual_de_usuario.pdf'), [
+    'Content-Type'        => 'application/pdf',
+    'Content-Disposition' => 'inline; filename="Manual de Usuario - Sistema de Especies Municipales.pdf"',
+]))->middleware('auth')->name('manual');
+
 //retencion es publica: no requiere autenticacion
 Route::get('retencion', [RetencionController::class, 'index'])
     ->name('retencion');

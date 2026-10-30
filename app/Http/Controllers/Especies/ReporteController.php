@@ -54,10 +54,11 @@ class ReporteController extends Controller
         return ['margin_top' => 15, 'margin_bottom' => 15, 'margin_left' => 15, 'margin_right' => 15];
     }
 
-    //monto truncado al centavo (22.875 -> 22.87); %.15g quita el ruido del punto flotante (29,758 x 0.015 = 446.37)
-    private function truncar(float $v): float
+    //monto a la milesima, como lo calculan las hojas de tesoreria (22.875 queda 22.875, sin recortar al centavo);
+    //%.15g quita el ruido del punto flotante (29,758 x 0.015 = 446.37)
+    private function milesimas(float $v): float
     {
-        return floor((float) sprintf('%.15g', $v * 100)) / 100;
+        return round((float) sprintf('%.15g', $v), 3);
     }
 
     //LIBRO DE ESPECIES
@@ -337,7 +338,7 @@ class ReporteController extends Controller
     }
 
     //reporte detallado del mes: cada realizacion y cada nula con fecha, denominacion, serie y rango, agrupadas por tipo.
-    //las nulas no cobran; el descargo es cantidad x costo de la tarifa del distrito, truncado al centavo.
+    //las nulas no cobran; el descargo es cantidad x costo de la tarifa del distrito, a la milesima.
     public function datosRealizacionesDetalle(Distrito $distrito, int $mes, int $anio, ?TipoEspecie $tipo = null): array
     {
         $desde = Carbon::create($anio, $mes, 1)->startOfMonth();
@@ -357,7 +358,7 @@ class ReporteController extends Controller
         $fila   = fn($fecha, Denominacion $den, $serie, int $del, int $al, float $cobrado) => [
             'fecha' => $fecha, 'valor' => (float) $den->valor, 'serie' => $serie, 'del' => $del, 'al' => $al,
             'cantidad' => $al - $del + 1, 'cobrado' => $cobrado,
-            'descargo' => $this->truncar(($al - $del + 1) * (float) ($costo($den) ?? 0)), 'sin_costo' => $costo($den) === null];
+            'descargo' => $this->milesimas(($al - $del + 1) * (float) ($costo($den) ?? 0)), 'sin_costo' => $costo($den) === null];
 
         $orden = DistritoTipoEspecie::where('distrito_id', $distrito->id)->pluck('orden', 'tipo_especie_id');
         $tipos = $realizaciones->pluck('tipoEspecie')->merge($nulas->pluck('trasladoDetalle.lote.tipoEspecie'))->unique('id')
@@ -397,7 +398,7 @@ class ReporteController extends Controller
     //especies municipales realizadas en el mes (hoja "REALIZADAS" de tesoreria), por tarifa del distrito:
     //cantidad, cobro (PRECIO DE VTA.) y descargo a costo. las nulas van en su propia fila si el distrito la lleva;
     //si no, se suman a la fila de su denominacion. sale cada tarifa que el distrito tuvo en existencia en el mes
-    //o que se movio, aunque quede en cero. el descargo de cada fila se trunca al centavo (22.875 -> 22.87) y los totales
+    //o que se movio, aunque quede en cero. el descargo de cada fila queda a la milesima (22.875) y los totales
     //suman esos montos.
     public function datosRealizaciones(Distrito $distrito, int $mes, int $anio, ?TipoEspecie $tipo = null): array
     {
@@ -446,11 +447,11 @@ class ReporteController extends Controller
                 $filas[] = ['orden' => $orden, 'es_nula' => false, 'cantidad' => $cantidad,
                             'descripcion' => $tar?->descripcion_realizaciones ?: ($tar?->descripcion ?: $den->etiqueta),
                             'costo' => $costo, 'venta' => $precio !== null || $cobrado > 0 ? $cobrado : null,
-                            'descargo' => $this->truncar($cantidad * ($costo ?? 0))];
+                            'descargo' => $this->milesimas($cantidad * ($costo ?? 0))];
                 if ($filaNulas) {
                     $filas[] = ['orden' => $tar->orden_nulas_realizaciones ?? $orden, 'es_nula' => true, 'cantidad' => $anuladas,
                                 'descripcion' => $filaNulas, 'costo' => $costo, 'venta' => $precio !== null ? 0.0 : null,
-                                'descargo' => $this->truncar($anuladas * ($costo ?? 0))];
+                                'descargo' => $this->milesimas($anuladas * ($costo ?? 0))];
                 }
             }
             usort($filas, fn($a, $b) => [$a['orden'], $a['es_nula']] <=> [$b['orden'], $b['es_nula']]);
@@ -775,7 +776,7 @@ class ReporteController extends Controller
 
     //control de saldos (hoja "SALDOS" de tesoreria): existencias del distrito al final del periodo, por tarifa,
     //valuadas a precio de venta y a costo. un tipo aparece si tuvo existencia o movimiento en el periodo.
-    //cada monto se trunca al centavo (22.875 -> 22.87) y los totales suman esos montos.
+    //cada monto queda a la milesima (22.875) y los totales suman esos montos.
     public function datosSaldos(Distrito $distrito, Carbon $desde, Carbon $hasta): array
     {
         $existencias = fn(Carbon $fecha) => Inventario::distrito($distrito->id, null, $fecha)
@@ -826,8 +827,8 @@ class ReporteController extends Controller
                 $cant  = $p['nula'] ? 0 : (int) ($final[$p['den']] ?? 0);
                 $costo = $p['costo'] === null ? null : (float) $p['costo'];
                 return ['cantidad' => $cant, 'descripcion' => $p['descripcion'], 'costo' => $costo,
-                        'venta' => $p['precio'] === null ? null : $this->truncar($cant * (float) $p['precio']),
-                        'existencias' => $this->truncar($cant * ($costo ?? 0)), 'es_nula' => $p['nula']];
+                        'venta' => $p['precio'] === null ? null : $this->milesimas($cant * (float) $p['precio']),
+                        'existencias' => $this->milesimas($cant * ($costo ?? 0)), 'es_nula' => $p['nula']];
             }, $plantilla);
 
             $ventas   = array_filter(array_column($filas, 'venta'), fn($v) => $v !== null);

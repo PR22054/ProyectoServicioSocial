@@ -1,12 +1,20 @@
-{{--formulario para agregar un lote a una compra: tipo, denominacion, serie y rangos--}}
+{{--formulario para agregar o editar un lote de una compra: tipo, denominacion, serie y rangos--}}
 @extends('frontend.layouts.admin')
-@section('page_title', 'Agregar Lote — Factura N° ' . $compra->numero_factura)
+@php
+    $lote       = $lote ?? null;
+    $trasladado = $trasladado ?? false;
+    //filas de rangos: las que regresan tras un error, las del lote al editar o una vacia
+    $filasRangos = array_values(old('rangos', $lote
+        ? $lote->rangos->map(fn($r) => ['numero_inicio' => $r->numero_inicio, 'numero_fin' => $r->numero_fin])->all()
+        : [['numero_inicio' => '', 'numero_fin' => '']]));
+@endphp
+@section('page_title', ($lote ? 'Editar Lote' : 'Agregar Lote') . ' — Factura N° ' . $compra->numero_factura)
 
 @section('page_content')
 
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">Agregar lote a compra N° {{ $compra->numero_factura }}</h3>
+            <h3 class="card-title">{{ $lote ? 'Editar lote de la' : 'Agregar lote a' }} compra N° {{ $compra->numero_factura }}</h3>
             <div class="card-tools">
                 <a href="{{ route('admin.especies.compras.show', $compra) }}" class="btn btn-sm btn-secondary">
                     <i class="fas fa-arrow-left mr-1"></i>Volver a la compra
@@ -23,19 +31,34 @@
                 </div>
             @endif
 
+            @if($trasladado)
+                <div class="alert alert-info py-2">
+                    Este lote ya tiene traslados: su tipo, denominación y serie no se pueden cambiar; solo sus rangos,
+                    siempre que sigan incluyendo los números ya trasladados.
+                </div>
+            @endif
+
             {{--datos del lote--}}
-            <form method="POST" action="{{ route('admin.especies.compras.lotes.store', $compra) }}" id="form-lote">
+            <form method="POST" id="form-lote"
+                  action="{{ $lote ? route('admin.especies.compras.lotes.update', [$compra, $lote]) : route('admin.especies.compras.lotes.store', $compra) }}">
                 @csrf
+                @if($lote) @method('PATCH') @endif
+                {{--un lote trasladado envia sus valores fijos en campos ocultos--}}
+                @if($trasladado)
+                    <input type="hidden" name="tipo_especie_id" value="{{ $lote->tipo_especie_id }}">
+                    <input type="hidden" name="denominacion_id" value="{{ $lote->denominacion_id }}">
+                    <input type="hidden" name="serie" value="{{ $lote->serie }}">
+                @endif
 
                 <div class="row">
                     <div class="col-md-4">
                         <div class="form-group">
                             <label>Tipo de especie <span class="text-danger">*</span></label>
-                            <select name="tipo_especie_id" id="tipo_especie_id"
+                            <select name="tipo_especie_id" id="tipo_especie_id" @disabled($trasladado)
                                     class="form-control @error('tipo_especie_id') is-invalid @enderror">
                                 <option value="">— Seleccione —</option>
                                 @foreach($tipos as $t)
-                                    <option value="{{ $t->id }}" {{ old('tipo_especie_id') == $t->id ? 'selected' : '' }}>
+                                    <option value="{{ $t->id }}" {{ old('tipo_especie_id', $lote?->tipo_especie_id) == $t->id ? 'selected' : '' }}>
                                         {{ $t->nombre }}
                                     </option>
                                 @endforeach
@@ -45,7 +68,7 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <label>Denominación <span class="text-danger">*</span></label>
-                            <select name="denominacion_id" id="denominacion_id"
+                            <select name="denominacion_id" id="denominacion_id" @disabled($trasladado)
                                     class="form-control @error('denominacion_id') is-invalid @enderror">
                                 <option value="">— Seleccione tipo primero —</option>
                             </select>
@@ -57,8 +80,8 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <label>Serie <small class="text-muted">(opcional)</small></label>
-                            <input type="text" name="serie" class="form-control"
-                                   value="{{ old('serie') }}"
+                            <input type="text" name="serie" class="form-control" @disabled($trasladado)
+                                   value="{{ old('serie', $lote?->serie) }}"
                                    placeholder='Ej. "A", "B", "C"' maxlength="10">
                             <small class="text-muted">Letra o código que identifica el bloque físico</small>
                         </div>
@@ -89,30 +112,34 @@
                                 </tr>
                             </thead>
                             <tbody id="rangos-body">
-                                {{--fila inicial--}}
-                                <tr class="rango-row" data-index="0">
-                                    <td class="text-center rango-num">1</td>
+                                {{--filas de rangos; la primera no se puede eliminar--}}
+                                @foreach($filasRangos as $i => $r)
+                                <tr class="rango-row" data-index="{{ $i }}">
+                                    <td class="text-center rango-num">{{ $i + 1 }}</td>
                                     <td>
-                                        <input type="number" name="rangos[0][numero_inicio]"
+                                        <input type="number" name="rangos[{{ $i }}][numero_inicio]"
                                                class="form-control form-control-sm rango-inicio
-                                                      @error('rangos.0.numero_inicio') is-invalid @enderror"
-                                               value="{{ old('rangos.0.numero_inicio') }}"
+                                                      @error('rangos.' . $i . '.numero_inicio') is-invalid @enderror"
+                                               value="{{ $r['numero_inicio'] ?? '' }}"
                                                min="1" placeholder="Ej. 257801">
                                     </td>
                                     <td>
-                                        <input type="number" name="rangos[0][numero_fin]"
+                                        <input type="number" name="rangos[{{ $i }}][numero_fin]"
                                                class="form-control form-control-sm rango-fin
-                                                      @error('rangos.0.numero_fin') is-invalid @enderror"
-                                               value="{{ old('rangos.0.numero_fin') }}"
+                                                      @error('rangos.' . $i . '.numero_fin') is-invalid @enderror"
+                                               value="{{ $r['numero_fin'] ?? '' }}"
                                                min="1" placeholder="Ej. 260800">
                                     </td>
                                     <td class="text-right">
                                         <span class="rango-cantidad text-muted">—</span>
                                     </td>
                                     <td class="text-center">
-                                        {{--primera fila no se puede eliminar--}}
+                                        @if($i > 0)
+                                            <button type="button" class="btn btn-xs btn-danger btn-eliminar-rango" title="Quitar este rango"><i class="fas fa-times"></i></button>
+                                        @endif
                                     </td>
                                 </tr>
+                                @endforeach
                             </tbody>
                             <tfoot>
                                 <tr class="bg-light">
@@ -131,7 +158,7 @@
                         <a href="{{ route('admin.especies.compras.show', $compra) }}"
                            class="btn btn-secondary mr-2">Cancelar</a>
                         <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save mr-1"></i>Guardar lote
+                            <i class="fas fa-save mr-1"></i>{{ $lote ? 'Guardar cambios' : 'Guardar lote' }}
                         </button>
                     </div>
                 </div>
@@ -145,8 +172,8 @@
 {{--denominaciones por tipo, filas de rangos y totales--}}
 <script>
 const AJAX_URL = '{{ route('admin.especies.ajax.denominaciones') }}';
-const oldTipoId = '{{ old('tipo_especie_id') }}';
-const oldDenId  = '{{ old('denominacion_id') }}';
+const oldTipoId = '{{ old('tipo_especie_id', $lote?->tipo_especie_id) }}';
+const oldDenId  = '{{ old('denominacion_id', $lote?->denominacion_id) }}';
 
 //denominaciones AJAX
 $('#tipo_especie_id').on('change', function () {
@@ -179,8 +206,9 @@ if (oldTipoId) {
     $('#tipo_especie_id').val(oldTipoId).trigger('change');
 }
 
-//rangos dinamicos
-var rangoIndex = 1;
+//rangos dinamicos; las filas precargadas ya muestran su cantidad
+var rangoIndex = {{ count($filasRangos) }};
+$('#rangos-body .rango-row').each(function () { calcularCantidad($(this)); });
 
 //calcula la cantidad de una fila de rango
 function calcularCantidad($row) {

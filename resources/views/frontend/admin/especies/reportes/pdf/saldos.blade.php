@@ -11,11 +11,13 @@
   $lineasTitulo = ['ALCALDIA MUNICIPAL DE SANTA ANA NORTE', $distrito->nombre_reporte,
                    'ESPECIES MUNICIPALES SALDOS A ' . mb_strtoupper($nombreMes) . ' DE ' . $hasta->year, 'CONTROL DE SALDOS'];
 
-  //montos a 2 decimales (ya vienen truncados al centavo); el cero se muestra "$ -" como en tesoreria
+  //montos con 2 o 3 decimales segun hagan falta; el cero se muestra "$ -" como en tesoreria
   $dinero = function ($v) {
       if ($v === null) return '';
       if (abs($v) < 0.000001) return '$ -';
-      return ($v < 0 ? '-$' : '$') . number_format(abs($v), 2);
+      //tres decimales solo si la milesima no es cero (22.875); si no, dos (22.87, 30.10)
+      $v = round($v, 3);
+      return ($v < 0 ? '-$' : '$') . number_format(abs($v), abs($v * 100 - round($v * 100)) > 0.000001 ? 3 : 2);
   };
   //costo con al menos 2 decimales y hasta 4 (0.30, 0.075, 0.0105)
   $costo = function ($v) {

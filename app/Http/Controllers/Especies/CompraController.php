@@ -76,6 +76,39 @@ class CompraController extends Controller
     //valida los rangos del lote (sin solaparse entre si ni con otros lotes del mismo tipo y serie) y lo guarda
     public function storeLote(Request $request, Compra $compra)
     {
+        $this->guardarLote($request, $compra);
+
+        return redirect()->route('admin.especies.compras.show', $compra)
+            ->with('success_lote', 'Lote agregado correctamente.');
+    }
+
+    //formulario de edicion: el mismo del alta con los datos del lote precargados
+    public function editarLote(Compra $compra, Lote $lote)
+    {
+        abort_if($lote->compra_id != $compra->id, 404);
+
+        $tipos       = TipoEspecie::where('activo', true)->orWhere('id', $lote->tipo_especie_id)->orderBy('nombre')->get();
+        $lote->load('rangos');
+        $trasladado  = DB::table('traslado_detalles')->where('lote_id', $lote->id)->exists();
+
+        return view('frontend.admin.especies.compras.lotes.crear', compact('compra', 'tipos', 'lote', 'trasladado'));
+    }
+
+    //guarda los cambios del lote si la historia de sus documentos sigue siendo valida
+    public function updateLote(Request $request, Compra $compra, Lote $lote)
+    {
+        abort_if($lote->compra_id != $compra->id, 404);
+
+        $this->guardarLote($request, $compra, $lote);
+
+        return redirect()->route('admin.especies.compras.show', $compra)
+            ->with('success_lote', 'Lote actualizado correctamente.');
+    }
+
+    //alta o edicion de un lote. si el lote ya se traslado no se cambia su tipo, denominacion ni serie
+    //(las realizaciones y nulas dependen de ellos) y sus rangos deben seguir cubriendo lo trasladado
+    private function guardarLote(Request $request, Compra $compra, ?Lote $editado = null): void
+    {
         $request->validate([
             'tipo_especie_id'          => 'required|exists:tipo_especies,id',
             'denominacion_id'          => 'required|exists:denominaciones,id',
@@ -94,7 +127,7 @@ class CompraController extends Controller
         //la denominacion pertenece al tipo
         $denominacion = Denominacion::find($request->denominacion_id);
         if ($denominacion->tipo_especie_id != $request->tipo_especie_id) {
-            return back()->withErrors(['denominacion_id' => 'La denominación no pertenece al tipo seleccionado.'])->withInput();
+            throw ValidationException::withMessages(['denominacion_id' => 'La denominación no pertenece al tipo seleccionado.']);
         }
 
         //reindexar: al quitar filas en el formulario los indices llegan con huecos (0, 2, 3...)
@@ -103,9 +136,7 @@ class CompraController extends Controller
         //inicio <= fin en cada rango
         foreach ($rangos as $i => $rango) {
             if ((int) $rango['numero_inicio'] > (int) $rango['numero_fin']) {
-                return back()
-                    ->withErrors(["rangos.$i.numero_fin" => "Rango " . ($i + 1) . ": el número fin debe ser mayor al inicio."])
-                    ->withInput();
+                throw ValidationException::withMessages(["rangos.$i.numero_fin" => "Rango " . ($i + 1) . ": el número fin debe ser mayor al inicio."]);
             }
         }
 
@@ -114,9 +145,7 @@ class CompraController extends Controller
             for ($j = $i + 1; $j < count($rangos); $j++) {
                 if ((int)$rangos[$i]['numero_inicio'] <= (int)$rangos[$j]['numero_fin'] &&
                     (int)$rangos[$i]['numero_fin']    >= (int)$rangos[$j]['numero_inicio']) {
-                    return back()
-                        ->withErrors(['rangos' => 'Hay rangos que se solapan entre sí en este lote.'])
-                        ->withInput();
+                    throw ValidationException::withMessages(['rangos' => 'Hay rangos que se solapan entre sí en este lote.']);
                 }
             }
         }
@@ -125,14 +154,34 @@ class CompraController extends Controller
         $tipoId = (int) $request->tipo_especie_id;
         $serie  = Inventario::serie($request->serie);
 
-        DB::transaction(function () use ($request, $compra, $rangos, $tipoId, $serie) {
-            Inventario::bloquear($tipoId);
+        DB::transaction(function () use ($request, $compra, $rangos, $tipoId, $serie, $editado) {
+            Inventario::bloquear($tipoId, ...($editado ? [$editado->tipo_especie_id] : []));
+
+            //poseedores que ya tuvieron documentos del lote: la bodega y cada distrito de sus traslados
+            $pares = [];
+            if ($editado) {
+                $detalles = DB::table('traslado_detalles')->join('traslados', 'traslados.id', '=', 'traslado_detalles.traslado_id')
+                    ->where('traslado_detalles.lote_id', $editado->id)
+                    ->get(['traslados.distrito_id', 'traslados.origen_distrito_id']);
+
+                if ($detalles->isNotEmpty() && ($editado->tipo_especie_id != $tipoId
+                        || $editado->denominacion_id != $request->denominacion_id || $editado->serie !== $serie)) {
+                    throw ValidationException::withMessages(['tipo_especie_id' =>
+                        'El lote ya tiene traslados: no se puede cambiar su tipo, denominación ni serie, solo sus rangos.']);
+                }
+                $pares[] = [null, $editado->id];
+                foreach ($detalles as $d) {
+                    if ($d->distrito_id)        $pares[] = [$d->distrito_id, $editado->id];
+                    if ($d->origen_distrito_id) $pares[] = [$d->origen_distrito_id, $editado->id];
+                }
+            }
 
             foreach ($rangos as $rango) {
                 $inicio = (int) $rango['numero_inicio'];
                 $fin    = (int) $rango['numero_fin'];
 
                 $overlap = LoteRango::whereHas('lote', fn($q) => $q->where('tipo_especie_id', $tipoId)
+                        ->when($editado, fn($q2) => $q2->whereKeyNot($editado->id))
                         ->where(fn($q2) => $serie === null ? $q2->whereNull('serie') : $q2->where('serie', $serie)))
                     ->where('numero_inicio', '<=', $fin)
                     ->where('numero_fin', '>=', $inicio)
@@ -144,13 +193,19 @@ class CompraController extends Controller
                 }
             }
 
-            $lote = Lote::create([
-                'compra_id'       => $compra->id,
+            $datos = [
                 'tipo_especie_id' => $tipoId,
                 'denominacion_id' => $request->denominacion_id,
                 'serie'           => $serie,
                 'cantidad_total'  => collect($rangos)->sum(fn($r) => (int) $r['numero_fin'] - (int) $r['numero_inicio'] + 1),
-            ]);
+            ];
+            if ($editado) {
+                $editado->update($datos);
+                $editado->rangos()->delete();
+                $lote = $editado;
+            } else {
+                $lote = Lote::create($datos + ['compra_id' => $compra->id]);
+            }
 
             foreach ($rangos as $rango) {
                 LoteRango::create([
@@ -161,10 +216,10 @@ class CompraController extends Controller
             }
 
             $this->recalcularMonto($compra);
-        });
 
-        return redirect()->route('admin.especies.compras.show', $compra)
-            ->with('success_lote', 'Lote agregado correctamente.');
+            //los traslados, nulas y realizaciones del lote deben seguir cabiendo en sus nuevos rangos
+            Inventario::asegurar($pares, 'rangos');
+        });
     }
 
     //actualiza factura, fecha u observaciones si la nueva fecha sigue respaldando los traslados ya hechos

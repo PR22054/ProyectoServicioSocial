@@ -97,6 +97,8 @@ Route::middleware(['auth', 'role:admin|empleado', 'no-back'])->prefix('admin')->
         Route::delete('compras/{compra}',              [EspecieCompraController::class,      'destroy'])->name('compras.destroy');
         Route::get('compras/{compra}/lotes/crear',     [EspecieCompraController::class,      'crearLote'])->name('compras.lotes.crear');
         Route::post('compras/{compra}/lotes',          [EspecieCompraController::class,      'storeLote'])->name('compras.lotes.store');
+        Route::get('compras/{compra}/lotes/{lote}/editar', [EspecieCompraController::class, 'editarLote'])->name('compras.lotes.editar');
+        Route::patch('compras/{compra}/lotes/{lote}',      [EspecieCompraController::class, 'updateLote'])->name('compras.lotes.update');
         Route::delete('compras/{compra}/lotes/{lote}', [EspecieCompraController::class,      'destroyLote'])->name('compras.lotes.destroy');
 
         Route::get('ajax/lotes-stock',                                           [BodegaController::class, 'ajaxLotesStock'])->name('ajax.lotes-stock');

@@ -99,6 +99,10 @@
                         </span>
                     </div>
                     <div class="col-md-2 text-right">
+                        <a href="{{ route('admin.especies.compras.lotes.editar', [$compra, $lote]) }}"
+                           class="btn btn-xs btn-warning mb-1">
+                            <i class="fas fa-edit"></i> Editar lote
+                        </a>
                         <form method="POST"
                               action="{{ route('admin.especies.compras.lotes.destroy', [$compra, $lote]) }}"
                               id="del-lote-{{ $lote->id }}" style="display:inline">

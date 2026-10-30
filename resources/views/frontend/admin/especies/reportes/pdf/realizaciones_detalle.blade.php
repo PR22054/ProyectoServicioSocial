@@ -6,8 +6,12 @@
   $lineasTitulo  = ['ALCALDIA MUNICIPAL DE SANTA ANA NORTE', $distrito->nombre_reporte, 'ESPECIES MUNICIPALES REALIZADAS',
                     mb_strtoupper("$nombreMes $anio")];
 
-  //montos a 2 decimales (los descargos ya vienen truncados al centavo); el cero se muestra "$ -"
-  $dinero = fn($v) => abs($v) < 0.000001 ? '$ -' : '$' . number_format($v, 2);
+  //montos con 2 o 3 decimales segun hagan falta (22.875); el cero se muestra "$ -"
+  $dinero = function ($v) {
+      $v = round($v, 3);
+      if (abs($v) < 0.000001) return '$ -';
+      return '$' . number_format($v, abs($v * 100 - round($v * 100)) > 0.000001 ? 3 : 2);
+  };
 @endphp
 @include('frontend.admin.especies.reportes.pdf.header')
 
